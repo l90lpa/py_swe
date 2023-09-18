@@ -6,7 +6,7 @@ import numpy as np
 import jax.numpy as jnp
 # from jax.tree_util import register_pytree_node
 
-from .geometry import ParGeometry
+from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_owned_range
 
 # @dataclass
 # class Geometry:
@@ -42,6 +42,7 @@ from .geometry import ParGeometry
 #     yms:       int    # Start indices of the memory allocated for this grid patch in the y direction # <--- locally_active_dof
 #     yme:       int    # End indices of the memory allocated for this grid patch in the y direction   # <--- locally_active_dof
 
+
 @dataclass
 class State:
     u: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the x direction
@@ -52,7 +53,7 @@ class State:
     
 @dataclass
 class ParField:
-    u: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the x direction
+    value: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the x direction
     geometry: ParGeometry
 
 

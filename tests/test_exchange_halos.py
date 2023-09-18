@@ -35,36 +35,36 @@ def test_exchange_halos():
 
     if size == 1:
         hypothesis = jnp.array([[1]], dtype=jnp.float32)
-        assert jnp.array_equal(new_field.u, hypothesis)
+        assert jnp.array_equal(new_field.value, hypothesis)
     elif size == 2:
         hypothesis = jnp.array([[1],[2]], dtype=jnp.float32)
         if rank == 0:
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         else:
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
     elif size == 3:
         if rank == 0:
             hypothesis = jnp.array([[1],[2]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         elif rank == 1:
             hypothesis = jnp.array([[1],[2],[3]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         else:
             hypothesis = jnp.array([[2],[3]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
     elif size == 4:
         if rank == 0:
             hypothesis = jnp.array([[1,3], [2,0]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         elif rank == 1:
             hypothesis = jnp.array([[1,0],[2,4]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         elif rank == 2:
             hypothesis = jnp.array([[1,3],[0,4]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         else:
             hypothesis = jnp.array([[0,3],[2,4]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
     else:
         assert False
 
@@ -84,36 +84,36 @@ def test_exchange_halos_2():
 
     if size == 1:
         hypothesis = jnp.array([[1,1,1,1]], dtype=jnp.float32)
-        assert jnp.array_equal(new_field.u, hypothesis)
+        assert jnp.array_equal(new_field.value, hypothesis)
     elif size == 2:
         if rank == 0:
             hypothesis = jnp.array([[1,1,2]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         else:
             hypothesis = jnp.array([[1,2,2]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
     elif size == 3:
         if rank == 0:
             hypothesis = jnp.array([[1,2]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         elif rank == 1:
             hypothesis = jnp.array([[1,2,3]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         else:
             hypothesis = jnp.array([[2,3,3]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
     elif size == 4:
         if rank == 0:
             hypothesis = jnp.array([[1,2]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         elif rank == 1:
             hypothesis = jnp.array([[1,2,3]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         elif rank == 2:
             hypothesis = jnp.array([[2,3,4]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
         else:
             hypothesis = jnp.array([[3,4]], dtype=jnp.float32)
-            assert jnp.array_equal(new_field.u, hypothesis)
+            assert jnp.array_equal(new_field.value, hypothesis)
     else:
         assert False

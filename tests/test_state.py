@@ -18,4 +18,4 @@ def test_create_par_field():
     field = create_par_field(locally_owned_field, geometry)
     
     hypothesis = jnp.array([[0,0,0],[0,5,0],[0,0,0]], dtype=jnp.float32)
-    assert jnp.array_equal(field.u, hypothesis)
+    assert jnp.array_equal(field.value, hypothesis)
