@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain
 from shallow_water.state import create_par_field
-from shallow_water.exchange_halos import exchange_halos
+from shallow_water.exchange_halos import exchange_field_halos
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -30,7 +30,7 @@ def test_exchange_halos():
 
     field = create_par_field(locally_owned_field, geometry)
     
-    new_field, _ = exchange_halos(field)
+    new_field, _ = exchange_field_halos(field)
 
 
     if size == 1:
@@ -79,7 +79,7 @@ def test_exchange_halos_2():
 
     field = create_par_field(locally_owned_field, geometry)
 
-    new_field, _ = exchange_halos(field)
+    new_field, _ = exchange_field_halos(field)
 
 
     if size == 1:
