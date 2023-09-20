@@ -9,8 +9,8 @@ config.update("jax_enable_x64", True)
 
 from mpi4py import MPI
 
-from shallow_water.geometry import create_par_geometry, RectangularDomain, get_locally_owned_range
-from shallow_water.state import create_par_field, calculate_max_wavespeed, gather_global_field
+from shallow_water.geometry import create_par_geometry, RectangularDomain, get_locally_owned_range, at_locally_owned
+from shallow_water.state import create_local_field_zeros, calculate_max_wavespeed, gather_global_field
 from shallow_water.model import advance_model_n_steps
 from shallow_water.visualize import visualize_locally_owned_field
 from shallow_water.runtime_context import mpi4py_comm
@@ -30,20 +30,18 @@ def test_model_1():
 
     domain = RectangularDomain(nx, ny)
     geometry = create_par_geometry(rank, size, domain)
-    locally_owned_field = 0 * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float64)
-    zero_field = create_par_field(locally_owned_field, geometry)
+    zero_field = create_local_field_zeros(geometry, jnp.float64)
 
-    u = jnp.copy(zero_field.value)
-    v = jnp.copy(zero_field.value)
-    h = jnp.copy(zero_field.value)
-    b = jnp.copy(zero_field.value)
+    u = jnp.copy(zero_field)
+    v = jnp.copy(zero_field)
+    h = jnp.copy(zero_field)
+    b = jnp.copy(zero_field)
 
     new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
 
-    start, end = get_locally_owned_range(geometry)
-    u_locally_owned = np.array(new_u[start.x:end.x,start.y:end.y])
-    v_locally_owned = np.array(new_v[start.x:end.x,start.y:end.y])
-    h_locally_owned = np.array(new_h[start.x:end.x,start.y:end.y])
+    u_locally_owned = np.array(new_u[at_locally_owned(geometry)])
+    v_locally_owned = np.array(new_v[at_locally_owned(geometry)])
+    h_locally_owned = np.array(new_h[at_locally_owned(geometry)])
     
     u_global = gather_global_field(u_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
     v_global = gather_global_field(v_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
@@ -65,22 +63,20 @@ def test_model_2():
 
     domain = RectangularDomain(nx, ny)
     geometry = create_par_geometry(rank, size, domain)
-    locally_owned_field = 0 * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float64)
-    zero_field = create_par_field(locally_owned_field, geometry)
+    zero_field = create_local_field_zeros(geometry, jnp.float64)
+    
+    u = jnp.copy(zero_field)
+    v = jnp.copy(zero_field)
+    b = jnp.copy(zero_field)
+    h = jnp.copy(zero_field)
 
-    u = jnp.copy(zero_field.value)
-    v = jnp.copy(zero_field.value)
-    h = jnp.copy(zero_field.value)
-    b = jnp.copy(zero_field.value)
-
-    start, end = get_locally_owned_range(geometry)
-    h = h.at[start.x:end.x,start.y:end.y].set(10.0)
+    h = h.at[at_locally_owned(geometry)].set(10.0)
 
     new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
 
-    u_locally_owned = np.array(new_u[start.x:end.x,start.y:end.y])
-    v_locally_owned = np.array(new_v[start.x:end.x,start.y:end.y])
-    h_locally_owned = np.array(new_h[start.x:end.x,start.y:end.y])
+    u_locally_owned = np.array(new_u[at_locally_owned(geometry)])
+    v_locally_owned = np.array(new_v[at_locally_owned(geometry)])
+    h_locally_owned = np.array(new_h[at_locally_owned(geometry)])
     
     u_global = gather_global_field(u_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
     v_global = gather_global_field(v_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
