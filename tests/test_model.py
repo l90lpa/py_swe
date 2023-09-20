@@ -10,7 +10,7 @@ config.update("jax_enable_x64", True)
 from mpi4py import MPI
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain, get_locally_owned_range
-from shallow_water.state import State, create_par_field, calculate_max_wavespeed, gather_global_field
+from shallow_water.state import create_par_field, calculate_max_wavespeed, gather_global_field
 from shallow_water.model import advance_model_n_steps
 from shallow_water.visualize import visualize_locally_owned_field
 from shallow_water.runtime_context import mpi4py_comm
@@ -38,14 +38,12 @@ def test_model_1():
     h = jnp.copy(zero_field.value)
     b = jnp.copy(zero_field.value)
 
-    state = State(u,v,h,1.0,geometry)
-
-    new_state = advance_model_n_steps(state, b, num_steps, dt, dx, dy)
+    new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
 
     start, end = get_locally_owned_range(geometry)
-    u_locally_owned = np.array(new_state.u[start.x:end.x,start.y:end.y])
-    v_locally_owned = np.array(new_state.v[start.x:end.x,start.y:end.y])
-    h_locally_owned = np.array(new_state.h[start.x:end.x,start.y:end.y])
+    u_locally_owned = np.array(new_u[start.x:end.x,start.y:end.y])
+    v_locally_owned = np.array(new_v[start.x:end.x,start.y:end.y])
+    h_locally_owned = np.array(new_h[start.x:end.x,start.y:end.y])
     
     u_global = gather_global_field(u_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
     v_global = gather_global_field(v_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
@@ -78,13 +76,11 @@ def test_model_2():
     start, end = get_locally_owned_range(geometry)
     h = h.at[start.x:end.x,start.y:end.y].set(10.0)
 
-    state = State(u,v,h,1.0,geometry)
+    new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
 
-    new_state = advance_model_n_steps(state, b, num_steps, dt, dx, dy)
-
-    u_locally_owned = np.array(new_state.u[start.x:end.x,start.y:end.y])
-    v_locally_owned = np.array(new_state.v[start.x:end.x,start.y:end.y])
-    h_locally_owned = np.array(new_state.h[start.x:end.x,start.y:end.y])
+    u_locally_owned = np.array(new_u[start.x:end.x,start.y:end.y])
+    v_locally_owned = np.array(new_v[start.x:end.x,start.y:end.y])
+    h_locally_owned = np.array(new_h[start.x:end.x,start.y:end.y])
     
     u_global = gather_global_field(u_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
     v_global = gather_global_field(v_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)

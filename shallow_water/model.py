@@ -73,7 +73,7 @@ def apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry):
 
     return u_new, v_new, h_new
 
-def _advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
+def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
 
     if max_wavespeed > 0.0:
         maxdt = 0.68 * min([dx, dy]) / max_wavespeed
@@ -95,10 +95,3 @@ def _advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt
         h = h.at[start.x:end.x,start.y:end.y].set(h_new)
 
     return u, v, h
-
-def advance_model_n_steps(state: State, b, n_steps: int, dt: float, dx: float, dy: float):
-    u, v, h = _advance_model_n_steps(state.u, state.v, state.h, state.max_wavespeed, state.geometry, b, n_steps, dt, dx, dy)
-    state.u = u
-    state.v = v
-    state.h = h
-    return state
