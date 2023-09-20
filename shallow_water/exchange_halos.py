@@ -3,17 +3,19 @@ import jax.numpy as jnp
 from jax.lax import create_token
 import mpi4jax
 
-from .state import ParField
-from .geometry import get_locally_owned_range           
+from .geometry import ParGeometry, get_locally_owned_range           
 from .runtime_context import mpi4jax_comm
 
-def exchange_field_halos(field: ParField, token=None):
+def exchange_field_halos(field, geometry: ParGeometry, token=None):
+
+    if geometry.pg_info.nxprocs * geometry.pg_info.nyprocs == 1:
+        return field, None
 
     comm = mpi4jax_comm
-    local_topology = field.geometry.pg_local_topology
-    halo_depth = field.geometry.halo_depth
+    local_topology = geometry.pg_local_topology
+    halo_depth = geometry.halo_depth
 
-    start, end = get_locally_owned_range(field.geometry)
+    start, end = get_locally_owned_range(geometry)
 
     # send buffer slices
     halo_source_slices = {
@@ -46,24 +48,23 @@ def exchange_field_halos(field: ParField, token=None):
     for send_name, recv_name in send_recv_pairs:
         send_id = neighbor_ids[send_name]
         recv_id = neighbor_ids[recv_name]
+        recv_buf = jnp.empty_like(field[halo_slices[recv_name]])
 
         if send_id == -1 and recv_id == -1:
             continue
         elif send_id == -1:
-            recv_buf = jnp.empty_like(field.value[halo_slices[recv_name]])
-            # recv_buf = np.empty_like(field.value[halo_slices[recv_name]])
+            # recv_buf = np.empty_like(field[halo_slices[recv_name]])
             recv_buf, token = mpi4jax.recv(recv_buf, recv_id, comm=comm, token=token)
-            field.value = field.value.at[halo_slices[recv_name]].set(recv_buf)
-            # field.value[halo_slices[recv_name]] = recv_buf
+            field = field.at[halo_slices[recv_name]].set(recv_buf)
+            # field[halo_slices[recv_name]] = recv_buf
         elif recv_id == -1:
-            send_buf = field.value[halo_source_slices[send_name]]
+            send_buf = field[halo_source_slices[send_name]]
             token = mpi4jax.send(send_buf, send_id, comm=comm, token=token)
         else:
-            recv_buf = jnp.empty_like(field.value[halo_slices[recv_name]])
-            # recv_buf = np.empty_like(field.value[halo_source_slices[recv_name]])
-            send_buf = field.value[halo_source_slices[send_name]]
+            # recv_buf = np.empty_like(field[halo_source_slices[recv_name]])
+            send_buf = field[halo_source_slices[send_name]]
             recv_buf, token = mpi4jax.sendrecv(send_buf, recv_buf, recv_id, send_id, comm=comm, token=token)
-            field.value = field.value.at[halo_slices[recv_name]].set(recv_buf)
-            # field.value[halo_slices[recv_name]] = recv_buf
+            field = field.at[halo_slices[recv_name]].set(recv_buf)
+            # field[halo_slices[recv_name]] = recv_buf
         
     return field, token
