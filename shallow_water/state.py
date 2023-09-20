@@ -16,20 +16,7 @@ class State:
     h: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the y direction
     max_wavespeed: float
     geometry: ParGeometry
-    
-@dataclass
-class ParField:
-    value: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the x direction
-    geometry: ParGeometry
 
-
-def create_par_field(locally_owned_field, geometry: ParGeometry):
-    assert(jnp.shape(locally_owned_field) == (geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
-    x_axis_padding = (geometry.halo_depth.west, geometry.halo_depth.east)
-    y_axis_padding = (geometry.halo_depth.south, geometry.halo_depth.north)
-    locally_active_field = jnp.pad(locally_owned_field, (x_axis_padding, y_axis_padding))
-    # locally_active_field = np.pad(locally_owned_field, (x_axis_padding, y_axis_padding))
-    return ParField(locally_active_field, geometry)
 
 def create_local_field_empty(geometry: ParGeometry, dtype):
     shape = get_locally_active_shape(geometry)
