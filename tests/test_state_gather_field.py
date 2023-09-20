@@ -5,12 +5,10 @@ import numpy as np
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain, get_locally_owned_range
 from shallow_water.state import create_par_field, gather_global_field
+from shallow_water.runtime_context import mpi4py_comm
 
-from mpi4py import MPI
-
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
+rank = mpi4py_comm.Get_rank()
+size = mpi4py_comm.Get_size()
 root = 0
 
 
@@ -19,7 +17,7 @@ def test_gather_global_field():
     
     domain = RectangularDomain(9,9)
 
-    geometry = create_par_geometry(comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
     locally_owned_field = (rank + 1) * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float32)
 
     if rank == 0:

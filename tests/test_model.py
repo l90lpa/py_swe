@@ -13,11 +13,10 @@ from shallow_water.geometry import create_par_geometry, RectangularDomain, get_l
 from shallow_water.state import State, create_par_field, calculate_max_wavespeed, gather_global_field
 from shallow_water.model import advance_model_n_steps
 from shallow_water.visualize import visualize_locally_owned_field
+from shallow_water.runtime_context import mpi4py_comm
 
-mpi4jax_comm = MPI.COMM_WORLD
-mpi4py_comm = mpi4jax_comm.Clone()
-rank = mpi4jax_comm.Get_rank()
-size = mpi4jax_comm.Get_size()
+rank = mpi4py_comm.Get_rank()
+size = mpi4py_comm.Get_size()
 root = 0 
 
 def test_model_1():
@@ -30,7 +29,7 @@ def test_model_1():
     num_steps = 1
 
     domain = RectangularDomain(nx, ny)
-    geometry = create_par_geometry(mpi4jax_comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
     locally_owned_field = 0 * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float64)
     zero_field = create_par_field(locally_owned_field, geometry)
 
@@ -67,7 +66,7 @@ def test_model_2():
     num_steps = 1
 
     domain = RectangularDomain(nx, ny)
-    geometry = create_par_geometry(mpi4jax_comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
     locally_owned_field = 0 * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float64)
     zero_field = create_par_field(locally_owned_field, geometry)
 

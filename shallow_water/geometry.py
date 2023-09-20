@@ -25,7 +25,6 @@ class Vec2:
 
 @dataclass
 class ProcessGridInfo:
-    mpi_comm:  int    # MPI communicator
     rank:    int    # Total number of MPI ranks
     nxprocs:   int    # Size of the processor grid in the x direction
     nyprocs:   int    # Size of the processor grid in the y direction
@@ -121,13 +120,13 @@ def partition_rectangular_domain(domain: RectangularDomain, num_subdomains):
     Partition = namedtuple("Partition", "subdomains nxprocs nyprocs")
     return Partition(subdomains, nxprocs, nyprocs)
 
-def create_par_geometry(comm, rank, size, domain: RectangularDomain):
+def create_par_geometry(rank, size, domain: RectangularDomain):
 
     subdomains, nxprocs, nyprocs = partition_rectangular_domain(domain, size)
 
     local_subdomain = subdomains[rank]
 
-    pg_info = ProcessGridInfo(comm, rank, nxprocs, nyprocs)
+    pg_info = ProcessGridInfo(rank, nxprocs, nyprocs)
 
     bounds = Vec2(pg_info.nxprocs, pg_info.nyprocs)
     coord = index_to_coord_xy_order(bounds, rank)

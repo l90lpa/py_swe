@@ -6,10 +6,10 @@ from mpi4py import MPI
 from shallow_water.geometry import create_par_geometry, RectangularDomain
 from shallow_water.state import create_par_field
 from shallow_water.exchange_halos import exchange_field_halos
+from shallow_water.runtime_context import mpi4py_comm
 
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
+rank = mpi4py_comm.Get_rank()
+size = mpi4py_comm.Get_size()
 
 def test_exchange_halos():
 
@@ -25,7 +25,7 @@ def test_exchange_halos():
         assert False
 
 
-    geometry = create_par_geometry(comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
     locally_owned_field = (rank + 1) * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float32)
 
     field = create_par_field(locally_owned_field, geometry)
@@ -74,7 +74,7 @@ def test_exchange_halos_2():
     domain = RectangularDomain(1,4)
 
 
-    geometry = create_par_geometry(comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
     locally_owned_field = (rank + 1) * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float32)
 
     field = create_par_field(locally_owned_field, geometry)

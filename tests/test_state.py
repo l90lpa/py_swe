@@ -7,12 +7,11 @@ from shallow_water.state import create_par_field
 
 def test_create_par_field():
 
-    comm = 0
     rank = 4
     size = 9
     domain = RectangularDomain(3,3)
 
-    geometry = create_par_geometry(comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
     locally_owned_field = (rank + 1) * jnp.ones((geometry.locally_owned_extent_x,geometry.locally_owned_extent_y), dtype=jnp.float32)
 
     field = create_par_field(locally_owned_field, geometry)

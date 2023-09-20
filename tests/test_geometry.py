@@ -58,12 +58,12 @@ def test_partition_rectangular_domain():
     assert subdomains[3].start_x == subdomains[0].local_nx and subdomains[3].start_y == subdomains[0].local_ny
 
 def test_create_par_geometry():
-    comm = 0
+    
     rank = 3
     size = 4
     domain = RectangularDomain(17,17)
 
-    geometry = create_par_geometry(comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
 
     assert geometry.pg_info.nxprocs == 2 and geometry.pg_info.nyprocs == 2
 
@@ -80,12 +80,12 @@ def test_create_par_geometry():
     assert geometry.pg_local_topology.west == 2
 
 def test_create_par_geometry_2():
-    comm = 0
+    
     rank = 4
     size = 9
     domain = RectangularDomain(3,3)
 
-    geometry = create_par_geometry(comm, rank, size, domain)
+    geometry = create_par_geometry(rank, size, domain)
 
     assert geometry.pg_info.nxprocs == 3 and geometry.pg_info.nyprocs == 3
 

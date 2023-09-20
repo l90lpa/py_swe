@@ -4,10 +4,11 @@ import mpi4jax
 
 from .state import ParField
 from .geometry import get_locally_owned_range           
+from .runtime_context import mpi4jax_comm
 
 def exchange_field_halos(field: ParField):
 
-    comm = field.geometry.pg_info.mpi_comm
+    comm = mpi4jax_comm
     local_topology = field.geometry.pg_local_topology
     halo_depth = field.geometry.halo_depth
 
