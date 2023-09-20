@@ -2,7 +2,6 @@ import numpy as np
 import jax.numpy as jnp
 from jax import jit
 
-from .state import State
 from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range
 

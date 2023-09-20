@@ -4,19 +4,8 @@ from typing import TypeVar
 from numpy.typing import NDArray
 import numpy as np
 import jax.numpy as jnp
-# from jax.tree_util import register_pytree_node
 
 from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_owned_range, get_locally_active_shape
-
-
-@dataclass
-class State:
-    u: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the x direction
-    v: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the y direction
-    h: NDArray[TypeVar("NpFloat", bound=np.floating)]  #: dimension(:,:), real(r8kind)  # Maximum extent of the domain in the y direction
-    max_wavespeed: float
-    geometry: ParGeometry
-
 
 def create_local_field_empty(geometry: ParGeometry, dtype):
     shape = get_locally_active_shape(geometry)
@@ -71,40 +60,3 @@ def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4p
         return np.block(blocks)
 
     return np.empty((1,))
-
-# def flatten_geometry(geometry):
-#   flat_content = (geometry.nx, geometry.ny,
-#                   geometry.xmax, geometry.ymax,
-#                   geometry.dx, geometry.dy,
-#                   geometry.mpi_comm,
-#                   geometry.nranks, geometry.rank,
-#                   geometry.nxprocs, geometry.nyprocs,
-#                   geometry.xproc, geometry.yproc,
-#                   geometry.north, geometry.south,
-#                   geometry.west, geometry.east,
-#                   geometry.npx, geometry.npy,
-#                   geometry.xps, geometry.xpe,
-#                   geometry.yps, geometry.ype,
-#                   geometry.xts, geometry.xte,
-#                   geometry.yts, geometry.yte,
-#                   geometry.xms, geometry.xme,
-#                   geometry.yms, geometry.yme)
-#   aux_data = None
-#   return (flat_content, aux_data)
-
-# def unflatten_geometry(aux_data, flat_content):
-#   v = Geometry(*flat_content)
-#   return v
-
-# def flatten_state(state):
-#   flat_content = (state.u, state.v, state.h, state.geometry, state.max_wavespeed)
-#   aux_data = None
-#   return (flat_content, aux_data)
-
-# def unflatten_state(aux_data, flat_content):
-#   v = State(*flat_content)
-#   return v
-
-
-# register_pytree_node(Geometry, flatten_geometry, unflatten_geometry)
-# register_pytree_node(State, flatten_state, unflatten_state)
