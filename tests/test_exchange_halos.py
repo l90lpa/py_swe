@@ -1,7 +1,6 @@
 import pytest
 
 import jax.numpy as jnp
-from mpi4py import MPI
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
 from shallow_water.state import create_local_field_zeros

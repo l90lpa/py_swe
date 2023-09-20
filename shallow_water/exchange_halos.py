@@ -1,4 +1,3 @@
-import numpy as np
 import jax.numpy as jnp
 from jax.lax import create_token
 import mpi4jax

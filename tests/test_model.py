@@ -9,10 +9,9 @@ config.update("jax_enable_x64", True)
 
 from mpi4py import MPI
 
-from shallow_water.geometry import create_par_geometry, RectangularDomain, get_locally_owned_range, at_locally_owned
-from shallow_water.state import create_local_field_zeros, calculate_max_wavespeed, gather_global_field
+from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
+from shallow_water.state import create_local_field_zeros, gather_global_field
 from shallow_water.model import advance_model_n_steps
-from shallow_water.visualize import visualize_locally_owned_field
 from shallow_water.runtime_context import mpi4py_comm
 
 rank = mpi4py_comm.Get_rank()

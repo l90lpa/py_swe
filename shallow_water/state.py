@@ -1,11 +1,7 @@
-from dataclasses import dataclass
-from typing import TypeVar
-
-from numpy.typing import NDArray
 import numpy as np
 import jax.numpy as jnp
 
-from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_owned_range, get_locally_active_shape
+from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape
 
 def create_local_field_empty(geometry: ParGeometry, dtype):
     shape = get_locally_active_shape(geometry)
