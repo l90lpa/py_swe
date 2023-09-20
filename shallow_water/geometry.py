@@ -23,27 +23,27 @@ class Vec2:
     x: int
     y: int
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class ProcessGridInfo:
     rank:    int    # Total number of MPI ranks
     nxprocs:   int    # Size of the processor grid in the x direction
     nyprocs:   int    # Size of the processor grid in the y direction
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class ProcessGridLocalTopology:
     north: int
     south: int
     east: int
     west: int
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class HaloDepth:
     north: int
     south: int
     east: int
     west: int
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class ParGeometry:
     pg_info: ProcessGridInfo
     pg_local_topology: ProcessGridLocalTopology
