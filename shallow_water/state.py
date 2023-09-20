@@ -6,7 +6,7 @@ import numpy as np
 import jax.numpy as jnp
 # from jax.tree_util import register_pytree_node
 
-from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_owned_range
+from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_owned_range, get_locally_active_shape
 
 
 @dataclass
@@ -30,6 +30,18 @@ def create_par_field(locally_owned_field, geometry: ParGeometry):
     locally_active_field = jnp.pad(locally_owned_field, (x_axis_padding, y_axis_padding))
     # locally_active_field = np.pad(locally_owned_field, (x_axis_padding, y_axis_padding))
     return ParField(locally_active_field, geometry)
+
+def create_local_field_empty(geometry: ParGeometry, dtype):
+    shape = get_locally_active_shape(geometry)
+    return jnp.empty(shape, dtype=dtype)
+
+def create_local_field_zeros(geometry: ParGeometry, dtype):
+    shape = get_locally_active_shape(geometry)
+    return jnp.zeros(shape, dtype=dtype)
+
+def create_local_field_ones(geometry: ParGeometry, dtype):
+    shape = get_locally_active_shape(geometry)
+    return jnp.ones(shape, dtype=dtype)
 
 def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4py_comm):
     '''Gather the distributed blocks of a field into a single 2D array on `rank == root`.
