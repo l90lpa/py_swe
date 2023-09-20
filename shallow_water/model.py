@@ -83,7 +83,7 @@ def advance_model_n_steps(state: State, b, n_steps: int, dt: float, dx: float, d
     for i in range(n_steps):
         if state.geometry.pg_info.rank == 0:
             print('step {}'.format(i + 1))
-        state, _ = exchange_state_halos(state)
+        state.u, state.v, state.h, _ = exchange_state_halos(state.u, state.v, state.h, state.geometry)
         state = apply_model(state, b, dt, dx, dy)
         state = apply_boundary_conditions(state)
 

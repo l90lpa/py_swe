@@ -68,3 +68,11 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
             # field[halo_slices[recv_name]] = recv_buf
         
     return field, token
+
+def exchange_state_halos(u, v, h, geometry, token=None):
+
+    u_field, token = exchange_field_halos(u, geometry, token=token)
+    v_field, token = exchange_field_halos(v, geometry, token=token)
+    h_field, token = exchange_field_halos(h, geometry, token=token)  
+
+    return u_field, v_field, h_field, token
