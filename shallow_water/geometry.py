@@ -51,6 +51,20 @@ class ParGeometry:
     locally_owned_extent_x: int
     locally_owned_extent_y: int
 
+def get_locally_owned_shape(geometry: ParGeometry):
+    shape = (
+        geometry.locally_owned_extent_x,
+        geometry.locally_owned_extent_y,
+    )
+    return shape
+
+def get_locally_active_shape(geometry: ParGeometry):
+    shape = (
+        geometry.locally_owned_extent_x + geometry.halo_depth.west + geometry.halo_depth.east,
+        geometry.locally_owned_extent_y + geometry.halo_depth.south + geometry.halo_depth.north,
+    )
+    return shape
+
 def get_locally_owned_range(geometry: ParGeometry):
 
     start_x = geometry.halo_depth.west
@@ -60,6 +74,10 @@ def get_locally_owned_range(geometry: ParGeometry):
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
 
+def at_locally_owned(geometry: ParGeometry):
+    start, end = get_locally_owned_range(geometry)
+    return (slice(start.x, end.x), slice(start.y, end.y))
+
 def get_locally_active_range(geometry: ParGeometry):
 
     start_x = 0
@@ -68,6 +86,10 @@ def get_locally_active_range(geometry: ParGeometry):
     end_y = geometry.halo_depth.south + geometry.locally_owned_extent_y + geometry.halo_depth.north
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
+
+def at_locally_active(geometry: ParGeometry):
+    start, end = get_locally_active_range(geometry)
+    return (slice(start.x, end.x), slice(start.y, end.y))
 
 def coord_to_index_xy_order(bounds: Vec2, coord: Vec2):
     index = coord.x + bounds.x * coord.y
