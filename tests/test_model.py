@@ -11,7 +11,7 @@ from mpi4py import MPI
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
 from shallow_water.state import create_local_field_zeros, gather_global_field
-from shallow_water.model import advance_model_n_steps
+from shallow_water.model import advance_model_n_steps, calculate_max_wavespeed
 from shallow_water.runtime_context import mpi4py_comm
 
 rank = mpi4py_comm.Get_rank()
@@ -35,8 +35,9 @@ def test_model_1():
     v = jnp.copy(zero_field)
     h = jnp.copy(zero_field)
     b = jnp.copy(zero_field)
+    max_wavespeed, _ = calculate_max_wavespeed(h, geometry)
 
-    new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
+    new_u, new_v, new_h = advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, num_steps, dt, dx, dy)
 
     u_locally_owned = np.array(new_u[at_locally_owned(geometry)])
     v_locally_owned = np.array(new_v[at_locally_owned(geometry)])
@@ -68,10 +69,10 @@ def test_model_2():
     v = jnp.copy(zero_field)
     b = jnp.copy(zero_field)
     h = jnp.copy(zero_field)
-
     h = h.at[at_locally_owned(geometry)].set(10.0)
+    max_wavespeed, _ = calculate_max_wavespeed(h, geometry)
 
-    new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
+    new_u, new_v, new_h = advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, num_steps, dt, dx, dy)
 
     u_locally_owned = np.array(new_u[at_locally_owned(geometry)])
     v_locally_owned = np.array(new_v[at_locally_owned(geometry)])
@@ -123,7 +124,9 @@ def test_model_3():
     if rank == 3:
         h = h.at[at_locally_owned(geometry)].set(h_global[5:11, 5:11])
 
-    new_u, new_v, new_h = advance_model_n_steps(u, v, h, 1.0, geometry, b, num_steps, dt, dx, dy)
+    max_wavespeed, _ = calculate_max_wavespeed(h, geometry)
+
+    new_u, new_v, new_h = advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, num_steps, dt, dx, dy)
 
 
     u_locally_owned = np.array(new_u[at_locally_owned(geometry)])

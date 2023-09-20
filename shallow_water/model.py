@@ -1,9 +1,11 @@
 from functools import partial
 import jax.numpy as jnp
 from jax import jit
+import mpi4jax
 
 from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned
+from .runtime_context import mpi4jax_comm
 
 
 @partial(jit, static_argnames=['geometry'])
@@ -94,3 +96,20 @@ def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt:
         h = h.at[at_locally_owned(geometry)].set(h_new)
 
     return u, v, h
+
+@partial(jit, static_argnames=['geometry'])
+def calculate_max_wavespeed(h, geometry, token=None):
+
+    g = 9.81
+
+    local_max_h = jnp.max(h[at_locally_owned(geometry)])
+    
+    # Currently mpi4jax.Allreduce only supports MPI.SUM op, hence we cannot currently do the following:
+    # global_max_h, token = mpi4py_comm.Allreduce(local_max_h, MPI.MAX, comm=mpi4jax_comm, token=token)
+
+    size = mpi4jax_comm.Get_size()
+    sendbuf = local_max_h * jnp.ones((size,),dtype=h.dtype)
+    recvbuf, token = mpi4jax.alltoall(sendbuf, comm=mpi4jax_comm, token=token)
+    global_max_h = jnp.max(recvbuf)
+
+    return jnp.sqrt(g * global_max_h), token
