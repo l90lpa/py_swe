@@ -1,10 +1,13 @@
 import jax.numpy as jnp
+from jax import jit
 from jax.lax import create_token
 import mpi4jax
+from functools import partial
 
 from .geometry import ParGeometry, get_locally_owned_range           
 from .runtime_context import mpi4jax_comm
 
+@partial(jit, static_argnames=['geometry'])
 def exchange_field_halos(field, geometry: ParGeometry, token=None):
 
     if geometry.pg_info.nxprocs * geometry.pg_info.nyprocs == 1:
@@ -68,6 +71,7 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
         
     return field, token
 
+@partial(jit, static_argnames=['geometry'])
 def exchange_state_halos(u, v, h, geometry, token=None):
 
     u_field, token = exchange_field_halos(u, geometry, token=token)

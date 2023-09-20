@@ -1,3 +1,4 @@
+from functools import partial
 import numpy as np
 import jax.numpy as jnp
 from jax import jit
@@ -6,6 +7,7 @@ from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range
 
 
+@partial(jit, static_argnames=['geometry'])
 def apply_model(u, v, h, u_new, v_new, h_new, geometry: ParGeometry, b, dt: float, dx: float, dy: float):
 
     dtdx = dt / dx
@@ -44,6 +46,7 @@ def apply_model(u, v, h, u_new, v_new, h_new, geometry: ParGeometry, b, dt: floa
     return u_new, v_new, h_new
 
 
+@partial(jit, static_argnames=['geometry'])
 def apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry):
 
     start, end = get_locally_owned_range(geometry)
