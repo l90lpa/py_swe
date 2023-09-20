@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jax import jit
 
 from .exchange_halos import exchange_state_halos
-from .geometry import ParGeometry, get_locally_owned_range
+from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned
 
 
 @partial(jit, static_argnames=['geometry'])
@@ -85,15 +85,13 @@ def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt:
     u_new = jnp.empty_like(u, shape=(geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
     v_new = jnp.empty_like(v, shape=(geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
     h_new = jnp.empty_like(h, shape=(geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
-
-    start, end = get_locally_owned_range(geometry)
     
     for i in range(n_steps):
         u, v, h, _ = exchange_state_halos(u, v, h, geometry)
         u_new, v_new, h_new = apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry)
         u_new, v_new, h_new = apply_model(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
-        u = u.at[start.x:end.x,start.y:end.y].set(u_new)
-        v = v.at[start.x:end.x,start.y:end.y].set(v_new)
-        h = h.at[start.x:end.x,start.y:end.y].set(h_new)
+        u = u.at[at_locally_owned(geometry)].set(u_new)
+        v = v.at[at_locally_owned(geometry)].set(v_new)
+        h = h.at[at_locally_owned(geometry)].set(h_new)
 
     return u, v, h
