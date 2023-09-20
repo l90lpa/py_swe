@@ -8,40 +8,6 @@ import jax.numpy as jnp
 
 from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_owned_range
 
-# @dataclass
-# class Geometry:
-#     ## Global info
-#     pgi: ProcessGridInfo
-
-#     nx:        int    # Number of grid points in the x direction
-#     ny:        int    # Number of grid points in the y direction
-#     xmax:      float  # Maximum extent of the domain in the x direction
-#     ymax:      float  # Maximum extent of the domain in the y direction
-
-#     ## Local info
-#     rank:      int    # MPI rank of this task
-#     north:     int    # MPI rank of northern neighbor
-#     south:     int    # MPI rank of southern neighbor
-#     west:      int    # MPI rank of western neighbor
-#     east:      int    # MPI rank of eastern neighbor
-
-#     dx:        float  # Grid spacing in the x direction
-#     dy:        float  # Grid spacing in the y direction
-#     # npx:       int    # Extent of the domain for this patch in x/y directions
-#     # npy:       int    # Extent of the domain for this patch in x/y directions
-#     xps:       int    # Start indices of this grid patch in the x direction # <--- locally_owned_dof
-#     xpe:       int    # End indices of this grid patch in the x direction   # <--- locally_owned_dof
-#     yps:       int    # Start indices of this grid patch in the y direction # <--- locally_owned_dof
-#     ype:       int    # End indices of this grid patch in the y direction   # <--- locally_owned_dof
-#     xts:       int    # Start indices of interior points for this grid patch in the x direction
-#     xte:       int    # End indices of interior points for this grid patch in the x direction
-#     yts:       int    # Start indices of interior points for this grid patch in the y direction
-#     yte:       int    # End indices of interior points for this grid patch in the y direction
-#     xms:       int    # Start indices of the memory allocated for this grid patch in the x direction # <--- locally_active_dof
-#     xme:       int    # End indices of the memory allocated for this grid patch in the x direction   # <--- locally_active_dof
-#     yms:       int    # Start indices of the memory allocated for this grid patch in the y direction # <--- locally_active_dof
-#     yme:       int    # End indices of the memory allocated for this grid patch in the y direction   # <--- locally_active_dof
-
 
 @dataclass
 class State:
