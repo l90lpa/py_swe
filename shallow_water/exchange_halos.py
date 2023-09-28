@@ -11,7 +11,7 @@ from .runtime_context import mpi4jax_comm
 def exchange_field_halos(field, geometry: ParGeometry, token=None):
 
     if geometry.pg_info.nxprocs * geometry.pg_info.nyprocs == 1:
-        return field, None
+        return field, field, None
 
     comm = mpi4jax_comm
     local_topology = geometry.pg_local_topology
@@ -40,41 +40,40 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
         "west":  local_topology.west}
     
     send_recv_pairs = [
-        ("north", "south"),
         ("south", "north"),
+        ("west", "east"),
+        ("north", "south"),
         ("east", "west"),
-        ("west", "east")]
+    ]
 
+    new_field = jnp.copy(field)
     if token is None:
         token = create_token()
     for send_name, recv_name in send_recv_pairs:
         send_id = neighbor_ids[send_name]
         recv_id = neighbor_ids[recv_name]
-        recv_buf = jnp.empty_like(field[halo_slices[recv_name]])
+        recv_buf = field[halo_slices[recv_name]]
+        send_buf = field[halo_source_slices[send_name]]
 
         if send_id == -1 and recv_id == -1:
             continue
         elif send_id == -1:
-            # recv_buf = np.empty_like(field[halo_slices[recv_name]])
             recv_buf, token = mpi4jax.recv(recv_buf, recv_id, comm=comm, token=token)
-            field = field.at[halo_slices[recv_name]].set(recv_buf)
-            # field[halo_slices[recv_name]] = recv_buf
+            new_field = new_field.at[halo_slices[recv_name]].set(recv_buf)
         elif recv_id == -1:
-            _, token = mpi4jax.send(send_buf, send_id, comm=comm, token=token)
+            send_buf, token = mpi4jax.send(send_buf, send_id, comm=comm, token=token)
+            field = field.at[halo_source_slices[send_name]].set(send_buf)
         else:
-            # recv_buf = np.empty_like(field[halo_source_slices[recv_name]])
-            send_buf = field[halo_source_slices[send_name]]
             recv_buf, token = mpi4jax.sendrecv(send_buf, recv_buf, recv_id, send_id, comm=comm, token=token)
-            field = field.at[halo_slices[recv_name]].set(recv_buf)
-            # field[halo_slices[recv_name]] = recv_buf
+            new_field = new_field.at[halo_slices[recv_name]].set(recv_buf)
         
-    return field, token
+    return new_field, field, token
 
 @partial(jit, static_argnames=['geometry'])
 def exchange_state_halos(u, v, h, geometry, token=None):
 
-    u_field, token = exchange_field_halos(u, geometry, token=token)
-    v_field, token = exchange_field_halos(v, geometry, token=token)
-    h_field, token = exchange_field_halos(h, geometry, token=token)  
+    u_new, _, token = exchange_field_halos(u, geometry, token=token)
+    v_new, _, token = exchange_field_halos(v, geometry, token=token)
+    h_new, _, token = exchange_field_halos(h, geometry, token=token)  
 
-    return u_field, v_field, h_field, token
+    return u_new, v_new, h_new, token
