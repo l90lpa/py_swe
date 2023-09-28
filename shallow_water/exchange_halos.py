@@ -60,8 +60,7 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
             field = field.at[halo_slices[recv_name]].set(recv_buf)
             # field[halo_slices[recv_name]] = recv_buf
         elif recv_id == -1:
-            send_buf = field[halo_source_slices[send_name]]
-            token = mpi4jax.send(send_buf, send_id, comm=comm, token=token)
+            _, token = mpi4jax.send(send_buf, send_id, comm=comm, token=token)
         else:
             # recv_buf = np.empty_like(field[halo_source_slices[recv_name]])
             send_buf = field[halo_source_slices[send_name]]
