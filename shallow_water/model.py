@@ -4,7 +4,7 @@ from jax import jit
 import mpi4jax
 
 from .exchange_halos import exchange_state_halos
-from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned
+from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned, at_locally_owned_interior
 from .runtime_context import mpi4jax_comm
 
 
@@ -35,14 +35,9 @@ def apply_model(u, v, h, u_new, v_new, h_new, geometry: ParGeometry, b, dt: floa
              -0.5 * dtdx * (h[i,j] - b[i,j]) * (u[i_plus_1, j] - u[i_minus_1, j])
              -0.5 * dtdy * (h[i,j] - b[i,j]) * (v[i, j_plus_1] - v[i, j_minus_1]))
     
-    start_x =  1 if geometry.pg_local_topology.west  == -1 else 0
-    end_x   = -1 if geometry.pg_local_topology.east  == -1 else None
-    start_y =  1 if geometry.pg_local_topology.south == -1 else 0
-    end_y   = -1 if geometry.pg_local_topology.north == -1 else None
-    
-    u_new = u_new.at[slice(start_x, end_x),slice(start_y, end_y)].set(u_new_interior)
-    v_new = v_new.at[slice(start_x, end_x),slice(start_y, end_y)].set(v_new_interior)
-    h_new = h_new.at[slice(start_x, end_x),slice(start_y, end_y)].set(h_new_interior)
+    u_new = u_new.at[at_locally_owned_interior(geometry)].set(u_new_interior)
+    v_new = v_new.at[at_locally_owned_interior(geometry)].set(v_new_interior)
+    h_new = h_new.at[at_locally_owned_interior(geometry)].set(h_new_interior)
 
     return u_new, v_new, h_new
 
@@ -55,24 +50,24 @@ def apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry):
     y_slice = slice(start.y, end.y)
 
     if geometry.pg_local_topology.south == -1:
-        u_new = u_new.at[:, 0].set( u[x_slice, start.y + 1])
-        v_new = v_new.at[:, 0].set(-v[x_slice, start.y + 1])
-        h_new = h_new.at[:, 0].set( h[x_slice, start.y + 1])
+        u_new = u_new.at[x_slice, start.y].set( u[x_slice, start.y + 1])
+        v_new = v_new.at[x_slice, start.y].set(-v[x_slice, start.y + 1])
+        h_new = h_new.at[x_slice, start.y].set( h[x_slice, start.y + 1])
 
     if geometry.pg_local_topology.north == -1:
-        u_new = u_new.at[:, -1].set( u[x_slice, end.y - 2])
-        v_new = v_new.at[:, -1].set(-v[x_slice, end.y - 2])
-        h_new = h_new.at[:, -1].set( h[x_slice, end.y - 2])
+        u_new = u_new.at[x_slice, end.y - 1].set( u[x_slice, end.y - 2])
+        v_new = v_new.at[x_slice, end.y - 1].set(-v[x_slice, end.y - 2])
+        h_new = h_new.at[x_slice, end.y - 1].set( h[x_slice, end.y - 2])
 
     if geometry.pg_local_topology.west == -1:
-        u_new = u_new.at[0, :].set(-u[start.x + 1, y_slice])
-        v_new = v_new.at[0, :].set( v[start.x + 1, y_slice])
-        h_new = h_new.at[0, :].set( h[start.x + 1, y_slice])
+        u_new = u_new.at[start.x, y_slice].set(-u[start.x + 1, y_slice])
+        v_new = v_new.at[start.x, y_slice].set( v[start.x + 1, y_slice])
+        h_new = h_new.at[start.x, y_slice].set( h[start.x + 1, y_slice])
         
     if geometry.pg_local_topology.east == -1:
-        u_new= u_new.at[-1, :].set(-u[end.x - 2, y_slice])
-        v_new= v_new.at[-1, :].set( v[end.x - 2, y_slice])
-        h_new= h_new.at[-1, :].set( h[end.x - 2, y_slice])
+        u_new = u_new.at[end.x - 1, y_slice].set(-u[end.x - 2, y_slice])
+        v_new = v_new.at[end.x - 1, y_slice].set( v[end.x - 2, y_slice])
+        h_new = h_new.at[end.x - 1, y_slice].set( h[end.x - 2, y_slice])
 
     return u_new, v_new, h_new
 
@@ -82,11 +77,8 @@ def advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
     u, v, h, _ = exchange_state_halos(u, v, h, geometry)
     u_new, v_new, h_new = apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry)
     u_new, v_new, h_new = apply_model(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
-    u = u.at[at_locally_owned(geometry)].set(u_new)
-    v = v.at[at_locally_owned(geometry)].set(v_new)
-    h = h.at[at_locally_owned(geometry)].set(h_new)
 
-    return u, v, h
+    return u_new, v_new, h_new
 
 def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
 
@@ -95,10 +87,10 @@ def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt:
         if dt > maxdt:
             print("WARNING: time step, dt = ", dt, ", is too large, it should be <= ", maxdt)
 
-    u_new = jnp.empty_like(u, shape=(geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
-    v_new = jnp.empty_like(v, shape=(geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
-    h_new = jnp.empty_like(h, shape=(geometry.locally_owned_extent_x, geometry.locally_owned_extent_y))
-    
+    u_new = jnp.empty_like(u)
+    v_new = jnp.empty_like(v)
+    h_new = jnp.empty_like(h)
+
     for i in range(n_steps):
         u, v, h, = advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
 

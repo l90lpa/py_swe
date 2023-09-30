@@ -76,7 +76,20 @@ def get_locally_owned_range(geometry: ParGeometry):
 
 def at_locally_owned(geometry: ParGeometry):
     start, end = get_locally_owned_range(geometry)
-    return (slice(start.x, end.x), slice(start.y, end.y))
+    return slice(start.x, end.x), slice(start.y, end.y)
+
+def at_locally_owned_interior(geometry: ParGeometry):
+    start, end = get_locally_owned_range(geometry)
+
+    start_x = start.x + ( 1 if geometry.pg_local_topology.west  == -1 else 0)
+    end_x   = end.x   + (-1 if geometry.pg_local_topology.east  == -1 else 0)
+    start_y = start.y + ( 1 if geometry.pg_local_topology.south == -1 else 0)
+    end_y   = end.y   + (-1 if geometry.pg_local_topology.north == -1 else 0)
+
+    x_slice = slice(start_x, end_x)
+    y_slice = slice(start_y, end_y)
+
+    return x_slice, y_slice
 
 def get_locally_active_range(geometry: ParGeometry):
 
