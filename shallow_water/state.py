@@ -1,7 +1,21 @@
+
+from collections import namedtuple
+
 import numpy as np
 import jax.numpy as jnp
+from jax.tree_util import register_pytree_node
 
 from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape
+
+
+State = namedtuple('State', 'u v h')
+
+register_pytree_node(
+    State,
+    lambda state: ([state.u, state.v, state.h], None),
+    lambda aux_data, flat_state: State(*flat_state)
+)
+
 
 def create_local_field_empty(geometry: ParGeometry, dtype):
     shape = get_locally_active_shape(geometry)

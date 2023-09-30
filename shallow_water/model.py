@@ -6,10 +6,14 @@ import mpi4jax
 from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned, at_locally_owned_interior
 from .runtime_context import mpi4jax_comm
+from .state import State
 
 
 @partial(jit, static_argnames=['geometry'])
-def apply_model(u, v, h, u_new, v_new, h_new, geometry: ParGeometry, b, dt: float, dx: float, dy: float):
+def apply_model(s_new, s, geometry: ParGeometry, b, dt: float, dx: float, dy: float):
+
+    (u_new, v_new, h_new) = s_new
+    (u, v, h) = s
 
     dtdx = dt / dx
     dtdy = dt / dy
@@ -39,11 +43,14 @@ def apply_model(u, v, h, u_new, v_new, h_new, geometry: ParGeometry, b, dt: floa
     v_new = v_new.at[at_locally_owned_interior(geometry)].set(v_new_interior)
     h_new = h_new.at[at_locally_owned_interior(geometry)].set(h_new_interior)
 
-    return u_new, v_new, h_new
+    return State(u_new, v_new, h_new)
 
 
 @partial(jit, static_argnames=['geometry'])
-def apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry):
+def apply_boundary_conditions(s_new, s, geometry):
+
+    (u_new, v_new, h_new) = s_new
+    (u, v, h) = s
 
     start, end = get_locally_owned_range(geometry)
     x_slice = slice(start.x, end.x)
@@ -72,29 +79,27 @@ def apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry):
     return State(u_new, v_new, h_new)
 
 @partial(jit, static_argnames=['geometry'])
-def advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy):
+def advance_model_1_steps(s_new, s, geometry, b, dt, dx, dy):
 
-    u_exc, v_exc, h_exc, u, v, h, _ = exchange_state_halos(u, v, h, geometry)
-    u_new, v_new, h_new = apply_boundary_conditions(u_exc, v_exc, h_exc, u_new, v_new, h_new, geometry)
-    u_new, v_new, h_new = apply_model(u_exc, v_exc, h_exc, u_new, v_new, h_new, geometry, b, dt, dx, dy)
+    s_exc, s, _ = exchange_state_halos(s, geometry)
+    s_new = apply_boundary_conditions(s_new, s_exc, geometry)
+    s_new = apply_model(s_new, s_exc, geometry, b, dt, dx, dy)
 
-    return u, v, h, u_new, v_new, h_new
+    return s_new, s
 
-def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
+def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
 
     if max_wavespeed > 0.0:
         maxdt = 0.68 * min([dx, dy]) / max_wavespeed
         if dt > maxdt:
             print("WARNING: time step, dt = ", dt, ", is too large, it should be <= ", maxdt)
 
-    u_new = jnp.empty_like(u)
-    v_new = jnp.empty_like(v)
-    h_new = jnp.empty_like(h)
+    s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
 
     for i in range(n_steps):
-        _, _, _, u, v, h = advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
+        s, _ = advance_model_1_steps(s_new, s, geometry, b, dt, dx, dy)
 
-    return u, v, h
+    return s
 
 @partial(jit, static_argnames=['geometry'])
 def calculate_max_wavespeed(h, geometry, token=None):

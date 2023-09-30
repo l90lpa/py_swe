@@ -6,6 +6,7 @@ from functools import partial
 
 from .geometry import ParGeometry, get_locally_owned_range           
 from .runtime_context import mpi4jax_comm
+from .state import State
 
 @partial(jit, static_argnames=['geometry'])
 def exchange_field_halos(field, geometry: ParGeometry, token=None):
@@ -70,10 +71,12 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
     return new_field, field, token
 
 @partial(jit, static_argnames=['geometry'])
-def exchange_state_halos(u, v, h, geometry, token=None):
+def exchange_state_halos(s, geometry, token=None):
+
+    (u, v, h) = s
 
     u_new, u, token = exchange_field_halos(u, geometry, token=token)
     v_new, v, token = exchange_field_halos(v, geometry, token=token)
     h_new, h, token = exchange_field_halos(h, geometry, token=token)  
 
-    return u_new, v_new, h_new, u, v, h, token
+    return State(u_new, v_new, h_new), State(u, v, h), token
