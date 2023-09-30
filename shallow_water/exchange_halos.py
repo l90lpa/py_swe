@@ -72,8 +72,8 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
 @partial(jit, static_argnames=['geometry'])
 def exchange_state_halos(u, v, h, geometry, token=None):
 
-    u_new, _, token = exchange_field_halos(u, geometry, token=token)
-    v_new, _, token = exchange_field_halos(v, geometry, token=token)
-    h_new, _, token = exchange_field_halos(h, geometry, token=token)  
+    u_new, u, token = exchange_field_halos(u, geometry, token=token)
+    v_new, v, token = exchange_field_halos(v, geometry, token=token)
+    h_new, h, token = exchange_field_halos(h, geometry, token=token)  
 
-    return u_new, v_new, h_new, token
+    return u_new, v_new, h_new, u, v, h, token

@@ -69,16 +69,16 @@ def apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry):
         v_new = v_new.at[end.x - 1, y_slice].set( v[end.x - 2, y_slice])
         h_new = h_new.at[end.x - 1, y_slice].set( h[end.x - 2, y_slice])
 
-    return u_new, v_new, h_new
+    return State(u_new, v_new, h_new)
 
 @partial(jit, static_argnames=['geometry'])
 def advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy):
 
-    u, v, h, _ = exchange_state_halos(u, v, h, geometry)
-    u_new, v_new, h_new = apply_boundary_conditions(u, v, h, u_new, v_new, h_new, geometry)
-    u_new, v_new, h_new = apply_model(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
+    u_exc, v_exc, h_exc, u, v, h, _ = exchange_state_halos(u, v, h, geometry)
+    u_new, v_new, h_new = apply_boundary_conditions(u_exc, v_exc, h_exc, u_new, v_new, h_new, geometry)
+    u_new, v_new, h_new = apply_model(u_exc, v_exc, h_exc, u_new, v_new, h_new, geometry, b, dt, dx, dy)
 
-    return u_new, v_new, h_new
+    return u, v, h, u_new, v_new, h_new
 
 def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
 
@@ -92,7 +92,7 @@ def advance_model_n_steps(u, v, h, max_wavespeed, geometry, b, n_steps: int, dt:
     h_new = jnp.empty_like(h)
 
     for i in range(n_steps):
-        u, v, h, = advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
+        _, _, _, u, v, h = advance_model_1_steps(u, v, h, u_new, v_new, h_new, geometry, b, dt, dx, dy)
 
     return u, v, h
 
