@@ -1,6 +1,7 @@
 from functools import partial
 import jax.numpy as jnp
 from jax import jit
+from jax.lax import create_token
 import mpi4jax
 
 from .exchange_halos import exchange_state_halos
@@ -79,13 +80,13 @@ def apply_boundary_conditions(s_new, s, geometry):
     return State(u_new, v_new, h_new)
 
 @partial(jit, static_argnames=['geometry'])
-def advance_model_1_steps(s_new, s, geometry, b, dt, dx, dy):
+def advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy):
 
-    s_exc, s, _ = exchange_state_halos(s, geometry)
+    s_exc, s, token = exchange_state_halos(s, geometry)
     s_new = apply_boundary_conditions(s_new, s_exc, geometry)
     s_new = apply_model(s_new, s_exc, geometry, b, dt, dx, dy)
 
-    return s_new, s
+    return s_new, s, token
 
 def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
 
@@ -95,9 +96,10 @@ def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps: int, dt: float
             print("WARNING: time step, dt = ", dt, ", is too large, it should be <= ", maxdt)
 
     s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
+    token = create_token()
 
-    for i in range(n_steps):
-        s, _ = advance_model_1_steps(s_new, s, geometry, b, dt, dx, dy)
+    for _ in range(n_steps):
+        s, _, token = advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy)
 
     return s
 
