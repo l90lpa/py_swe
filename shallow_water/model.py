@@ -88,7 +88,7 @@ def advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy):
 
     return s_new, s, token
 
-def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps: int, dt: float, dx: float, dy: float):
+def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps, dt, dx, dy, scan_func):
 
     if max_wavespeed > 0.0:
         maxdt = 0.68 * min([dx, dy]) / max_wavespeed
@@ -98,8 +98,16 @@ def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps: int, dt: float
     s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
     token = create_token()
 
-    for _ in range(n_steps):
+    def advance_model_1_steps_wrapper(elem, _):
+        (s_new, s, token) = elem
         s, _, token = advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy)
+        return (s_new, s, token), None
+    
+    elem = (s_new, s, token)
+
+    elem = scan_func(advance_model_1_steps_wrapper, elem, n_steps)
+    
+    s = elem[1]
 
     return s
 
