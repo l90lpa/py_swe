@@ -7,6 +7,7 @@ from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned, at_locally_owned_interior
 from .runtime_context import mpi4jax_comm
 from .state import State
+from .ode_integrate import integrate, forward_euler_solver_step
 
 
 @partial(jit, static_argnames=['geometry'])
@@ -23,25 +24,26 @@ def apply_model(s_new, s, geometry: ParGeometry, b, dt: float, dx: float, dy: fl
     i_plus_1 = j_plus_1 = slice(2, None)
     i_minus_1 = j_minus_1 = slice(0, -2)
     
-    u_new_interior = ((u[i_plus_1, j] + u[i_minus_1, j] + u[i, j_plus_1] + u[i, j_minus_1]) / 4.0 
+    u_new_interior = -u[i,j] + ((u[i_plus_1, j] + u[i_minus_1, j] + u[i, j_plus_1] + u[i, j_minus_1]) / 4.0 
              -0.5 * dtdx * ((u[i_plus_1, j]**2) / 2.0 - (u[i_minus_1, j]**2) / 2.0)
              -0.5 * dtdy * v[i, j] * (u[i, j_plus_1] - u[i, j_minus_1])
              -0.5 * dtdx * g * (h[i_plus_1, j] - h[i_minus_1, j]))
     
-    v_new_interior = ((v[i_plus_1, j] + v[i_minus_1, j] + v[i, j_plus_1] + v[i, j_minus_1]) / 4.0 
+    v_new_interior = -v[i,j] + ((v[i_plus_1, j] + v[i_minus_1, j] + v[i, j_plus_1] + v[i, j_minus_1]) / 4.0 
              -0.5 * dtdy * ((v[i, j_plus_1]**2) / 2.0 - (v[i, j_minus_1]**2) / 2.0)
              -0.5 * dtdx * u[i, j] * (v[i_plus_1, j] - v[i_minus_1, j])
              -0.5 * dtdy * g * (h[i, j_plus_1] - h[i, j_minus_1]))
     
-    h_new_interior = ((h[i_plus_1, j] + h[i_minus_1, j] + h[i, j_plus_1] + h[i, j_minus_1]) / 4.0 
+    h_new_interior = -h[i,j] + ((h[i_plus_1, j] + h[i_minus_1, j] + h[i, j_plus_1] + h[i, j_minus_1]) / 4.0 
              -0.5 * dtdx * u[i,j] * ((h[i_plus_1, j] - b[i_plus_1, j]) - (h[i_minus_1, j] - b[i_minus_1, j]))
              -0.5 * dtdy * v[i,j] * ((h[i, j_plus_1] - b[i, j_plus_1]) - (h[i, j_minus_1] - b[i, j_minus_1]))
              -0.5 * dtdx * (h[i,j] - b[i,j]) * (u[i_plus_1, j] - u[i_minus_1, j])
              -0.5 * dtdy * (h[i,j] - b[i,j]) * (v[i, j_plus_1] - v[i, j_minus_1]))
     
-    u_new = u_new.at[at_locally_owned_interior(geometry)].set(u_new_interior)
-    v_new = v_new.at[at_locally_owned_interior(geometry)].set(v_new_interior)
-    h_new = h_new.at[at_locally_owned_interior(geometry)].set(h_new_interior)
+    interior = at_locally_owned_interior(geometry)
+    u_new = u_new.at[interior].set(u_new_interior / dt)
+    v_new = v_new.at[interior].set(v_new_interior / dt)
+    h_new = h_new.at[interior].set(h_new_interior / dt)
 
     return State(u_new, v_new, h_new)
 
@@ -78,14 +80,16 @@ def apply_boundary_conditions(s_new, s, geometry):
 
     return State(u_new, v_new, h_new)
 
+
 @partial(jit, static_argnames=['geometry'])
-def advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy):
+def shallow_water_dynamics(s_new, s, token, geometry, b, dt, dx, dy):
 
     s_exc, s, token = exchange_state_halos(s, geometry)
     s_new = apply_boundary_conditions(s_new, s_exc, geometry)
     s_new = apply_model(s_new, s_exc, geometry, b, dt, dx, dy)
 
     return s_new, s, token
+
 
 def calculate_max_wavespeed(h, geometry, token=None):
 
@@ -103,7 +107,8 @@ def calculate_max_wavespeed(h, geometry, token=None):
 
     return jnp.sqrt(g * global_max_h), token
 
-def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy, scan_func):
+
+def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy):
     
     token = lax.create_token()
 
@@ -117,15 +122,16 @@ def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy, scan_func):
 
     s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
 
-    def advance_model_1_steps_wrapper(elem, _):
-        (s_new, s, token) = elem
-        s, _, token = advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy)
-        return (s_new, s, token), None
+    def shallow_water_dynamics_(s_new, s, token):
+        return shallow_water_dynamics(s_new, s, token, geometry, b, dt, dx, dy)
     
-    elem = (s_new, s, token)
+    def forward_euler_solver_step_(f, dt, s_new, s, token):
+        return forward_euler_solver_step(f, dt, s_new, s, token, geometry)
 
-    elem = scan_func(advance_model_1_steps_wrapper, elem, n_steps)
+    ic = (s_new, s, token)
+
+    fc = integrate(shallow_water_dynamics_, ic, dt, n_steps, forward_euler_solver_step_)
     
-    s = elem[1]
+    s = fc[1]
 
     return s

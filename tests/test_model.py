@@ -39,7 +39,7 @@ def test_model_1():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy, scan_fnc)
+    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy)
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
@@ -74,7 +74,7 @@ def test_model_2():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy, scan_fnc)
+    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy)
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
@@ -127,7 +127,7 @@ def test_model_3():
 
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy, scan_fnc)
+    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy)
 
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
