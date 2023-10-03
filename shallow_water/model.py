@@ -108,10 +108,12 @@ def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy, scan_func):
     token = lax.create_token()
 
     max_wavespeed, token = calculate_max_wavespeed(s.h, geometry, token)
-    maxdt = 0.68 * min([dx, dy]) / max_wavespeed
-    lax.cond(max_wavespeed > 0.0 and dt > maxdt, 
-             lambda: debug.print("WARNING: time step, dt = {}, is too large, it should be <= {}", dt, maxdt),
-             lambda: None)
+    maxdt = 0.68 * jnp.min(jnp.array([dx, dy])) / max_wavespeed
+    lax.cond(max_wavespeed > 0.0,
+             lambda : lax.cond(dt > maxdt, 
+                               lambda: debug.print("WARNING: time step, dt = {}, is too large, it should be <= {}", dt, maxdt),
+                               lambda: None),
+             lambda : None)
 
     s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
 
