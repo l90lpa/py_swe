@@ -11,10 +11,10 @@ from mpi4py import MPI
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
 from shallow_water.state import create_local_field_zeros, gather_global_field
-from shallow_water.model import advance_model_n_steps, calculate_max_wavespeed
+from shallow_water.model import advance_model_n_steps
 from shallow_water.runtime_context import mpi4py_comm
 from shallow_water.state import State
-from shallow_water.scan_functions import py_scan
+from shallow_water.scan_functions import jax_scan as scan_fnc
 
 rank = mpi4py_comm.Get_rank()
 size = mpi4py_comm.Get_size()
@@ -38,9 +38,8 @@ def test_model_1():
     h = jnp.copy(zero_field)
     s = State(u, v, h)
     b = jnp.copy(zero_field)
-    max_wavespeed, _ = calculate_max_wavespeed(h, geometry)
 
-    s_new = advance_model_n_steps(s, max_wavespeed, geometry, b, num_steps, dt, dx, dy, py_scan)
+    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy, scan_fnc)
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
@@ -74,9 +73,8 @@ def test_model_2():
     h = h.at[at_locally_owned(geometry)].set(10.0)
     s = State(u, v, h)
     b = jnp.copy(zero_field)
-    max_wavespeed, _ = calculate_max_wavespeed(h, geometry)
 
-    s_new = advance_model_n_steps(s, max_wavespeed, geometry, b, num_steps, dt, dx, dy, py_scan)
+    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy, scan_fnc)
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
@@ -128,9 +126,8 @@ def test_model_3():
     s = State(u, v, h)
 
     b = jnp.copy(zero_field)
-    max_wavespeed, _ = calculate_max_wavespeed(h, geometry)
 
-    s_new = advance_model_n_steps(s, max_wavespeed, geometry, b, num_steps, dt, dx, dy, py_scan)
+    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy, scan_fnc)
 
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])

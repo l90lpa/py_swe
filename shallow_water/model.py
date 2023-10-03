@@ -1,7 +1,6 @@
 from functools import partial
 import jax.numpy as jnp
-from jax import jit
-from jax.lax import create_token
+from jax import lax, debug, jit
 import mpi4jax
 
 from .exchange_halos import exchange_state_halos
@@ -88,30 +87,6 @@ def advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy):
 
     return s_new, s, token
 
-def advance_model_n_steps(s, max_wavespeed, geometry, b, n_steps, dt, dx, dy, scan_func):
-
-    if max_wavespeed > 0.0:
-        maxdt = 0.68 * min([dx, dy]) / max_wavespeed
-        if dt > maxdt:
-            print("WARNING: time step, dt = ", dt, ", is too large, it should be <= ", maxdt)
-
-    s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
-    token = create_token()
-
-    def advance_model_1_steps_wrapper(elem, _):
-        (s_new, s, token) = elem
-        s, _, token = advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy)
-        return (s_new, s, token), None
-    
-    elem = (s_new, s, token)
-
-    elem = scan_func(advance_model_1_steps_wrapper, elem, n_steps)
-    
-    s = elem[1]
-
-    return s
-
-@partial(jit, static_argnames=['geometry'])
 def calculate_max_wavespeed(h, geometry, token=None):
 
     g = 9.81
@@ -127,3 +102,28 @@ def calculate_max_wavespeed(h, geometry, token=None):
     global_max_h = jnp.max(recvbuf)
 
     return jnp.sqrt(g * global_max_h), token
+
+def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy, scan_func):
+    
+    token = lax.create_token()
+
+    max_wavespeed, token = calculate_max_wavespeed(s.h, geometry, token)
+    maxdt = 0.68 * min([dx, dy]) / max_wavespeed
+    lax.cond(max_wavespeed > 0.0 and dt > maxdt, 
+             lambda: debug.print("WARNING: time step, dt = {}, is too large, it should be <= {}", dt, maxdt),
+             lambda: None)
+
+    s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
+
+    def advance_model_1_steps_wrapper(elem, _):
+        (s_new, s, token) = elem
+        s, _, token = advance_model_1_steps(s_new, s, token, geometry, b, dt, dx, dy)
+        return (s_new, s, token), None
+    
+    elem = (s_new, s, token)
+
+    elem = scan_func(advance_model_1_steps_wrapper, elem, n_steps)
+    
+    s = elem[1]
+
+    return s
