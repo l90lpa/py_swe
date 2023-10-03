@@ -142,7 +142,7 @@ def test_model_3():
         rms_v = sqrt(np.sum(v_global ** 2) / (nx * ny))
         rms_h = sqrt(np.sum(h_global ** 2) / (nx * ny))
 
-        print('rms_u = {}, rms_v = {}, rms_h = {}'.format(rank, rms_u, rms_v, rms_h))
+        print('rms_u = {}, rms_v = {}, rms_h = {}'.format(rms_u, rms_v, rms_h))
         assert abs(rms_u - 0.0016110910527818616) == 0.0 #< 10.e-15
         assert abs(rms_v - 0.0016110910527825017) == 0.0 #< 10.e-15
         assert abs(rms_h - 5000.371968791809)     == 0.0 #< 10.e-15
