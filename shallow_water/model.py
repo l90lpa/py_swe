@@ -2,10 +2,11 @@ from functools import partial
 import jax.numpy as jnp
 from jax import lax, debug, jit
 import mpi4jax
+# Abusing mpi4jax by exposing unpack_hashable, to unpack HashableMPIType which is used in mpi4jax interface, from _src
+from mpi4jax._src.utils import unpack_hashable
 
 from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned, at_locally_owned_interior
-from .runtime_context import mpi4jax_comm
 from .state import State
 from .ode_integrate import integrate, forward_euler_solver_step
 
@@ -81,17 +82,18 @@ def apply_boundary_conditions(s_new, s, geometry):
     return State(u_new, v_new, h_new)
 
 
-@partial(jit, static_argnames=['geometry'])
-def shallow_water_dynamics(s_new, s, token, geometry, b, dt, dx, dy):
+@partial(jit, static_argnames=['geometry', 'comm_wrapped'])
+def shallow_water_dynamics(s_new, s, token, geometry, comm_wrapped, b, dt, dx, dy):
 
-    s_exc, s, token = exchange_state_halos(s, geometry)
+    s_exc, s, token = exchange_state_halos(s, geometry, comm_wrapped)
     s_new = apply_boundary_conditions(s_new, s_exc, geometry)
     s_new = apply_model(s_new, s_exc, geometry, b, dt, dx, dy)
 
     return s_new, s, token
 
 
-def calculate_max_wavespeed(h, geometry, token=None):
+@partial(jit, static_argnames=['geometry', 'comm_wrapped'])
+def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     g = 9.81
 
@@ -100,19 +102,21 @@ def calculate_max_wavespeed(h, geometry, token=None):
     # Currently mpi4jax.Allreduce only supports MPI.SUM op, hence we cannot currently do the following:
     # global_max_h, token = mpi4py_comm.Allreduce(local_max_h, MPI.MAX, comm=mpi4jax_comm, token=token)
 
-    size = mpi4jax_comm.Get_size()
+    comm = unpack_hashable(comm_wrapped)
+    size = comm.Get_size()
     sendbuf = local_max_h * jnp.ones((size,),dtype=h.dtype)
-    recvbuf, token = mpi4jax.alltoall(sendbuf, comm=mpi4jax_comm, token=token)
+    recvbuf, token = mpi4jax.alltoall(sendbuf, comm=comm, token=token)
     global_max_h = jnp.max(recvbuf)
 
     return jnp.sqrt(g * global_max_h), token
 
 
-def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy):
+@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
+def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     
     token = lax.create_token()
 
-    max_wavespeed, token = calculate_max_wavespeed(s.h, geometry, token)
+    max_wavespeed, token = calculate_max_wavespeed(s.h, geometry, comm_wrapped, token)
     maxdt = 0.68 * jnp.min(jnp.array([dx, dy])) / max_wavespeed
     lax.cond(max_wavespeed > 0.0,
              lambda : lax.cond(dt > maxdt, 
@@ -123,7 +127,7 @@ def advance_model_n_steps(s, geometry, b, n_steps, dt, dx, dy):
     s_new = State(jnp.empty_like(s.u), jnp.empty_like(s.v), jnp.empty_like(s.h))
 
     def shallow_water_dynamics_(s_new, s, token):
-        return shallow_water_dynamics(s_new, s, token, geometry, b, dt, dx, dy)
+        return shallow_water_dynamics(s_new, s, token, geometry, comm_wrapped, b, dt, dx, dy)
     
     def forward_euler_solver_step_(f, dt, s_new, s, token):
         return forward_euler_solver_step(f, dt, s_new, s, token, geometry)

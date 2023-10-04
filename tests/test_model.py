@@ -8,13 +8,17 @@ from jax import config
 config.update("jax_enable_x64", True)
 
 from mpi4py import MPI
+# Abusing mpi4jax by exposing HashableMPIType, which is used in mpi4jax interface, from _src
+from mpi4jax._src.utils import HashableMPIType
 
 from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
 from shallow_water.state import create_local_field_zeros, gather_global_field
 from shallow_water.model import advance_model_n_steps
-from shallow_water.runtime_context import mpi4py_comm
 from shallow_water.state import State
 from shallow_water.scan_functions import jax_scan as scan_fnc
+
+mpi4py_comm = MPI.COMM_WORLD
+mpi4jax_comm = mpi4py_comm.Clone()
 
 rank = mpi4py_comm.Get_rank()
 size = mpi4py_comm.Get_size()
@@ -39,7 +43,7 @@ def test_model_1():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy)
+    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
@@ -74,7 +78,7 @@ def test_model_2():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy)
+    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
@@ -127,7 +131,7 @@ def test_model_3():
 
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, b, num_steps, dt, dx, dy)
+    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])

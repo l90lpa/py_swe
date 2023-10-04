@@ -2,19 +2,20 @@ import jax.numpy as jnp
 from jax import jit
 from jax.lax import create_token
 import mpi4jax
+# Abusing mpi4jax by exposing unpack_hashable, to unpack HashableMPIType which is used in mpi4jax interface, from _src
+from mpi4jax._src.utils import unpack_hashable
 from functools import partial
 
-from .geometry import ParGeometry, get_locally_owned_range           
-from .runtime_context import mpi4jax_comm
+from .geometry import ParGeometry, get_locally_owned_range
 from .state import State
 
-@partial(jit, static_argnames=['geometry'])
-def exchange_field_halos(field, geometry: ParGeometry, token=None):
+@partial(jit, static_argnames=['geometry', 'comm_wrapped'])
+def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token=None):
 
     if geometry.pg_info.nxprocs * geometry.pg_info.nyprocs == 1:
         return field, field, None
 
-    comm = mpi4jax_comm
+    comm = unpack_hashable(comm_wrapped)
     local_topology = geometry.pg_local_topology
     halo_depth = geometry.halo_depth
 
@@ -70,13 +71,13 @@ def exchange_field_halos(field, geometry: ParGeometry, token=None):
         
     return new_field, field, token
 
-@partial(jit, static_argnames=['geometry'])
-def exchange_state_halos(s, geometry, token=None):
+@partial(jit, static_argnames=['geometry', 'comm_wrapped'])
+def exchange_state_halos(s, geometry, comm_wrapped, token=None):
 
     (u, v, h) = s
 
-    u_new, u, token = exchange_field_halos(u, geometry, token=token)
-    v_new, v, token = exchange_field_halos(v, geometry, token=token)
-    h_new, h, token = exchange_field_halos(h, geometry, token=token)  
+    u_new, u, token = exchange_field_halos(u, geometry, comm_wrapped, token=token)
+    v_new, v, token = exchange_field_halos(v, geometry, comm_wrapped, token=token)
+    h_new, h, token = exchange_field_halos(h, geometry, comm_wrapped, token=token)  
 
     return State(u_new, v_new, h_new), State(u, v, h), token

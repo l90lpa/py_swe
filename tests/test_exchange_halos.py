@@ -3,13 +3,18 @@ import pytest
 import jax.numpy as jnp
 from jax import jvp, vjp
 
+from mpi4py import MPI
+# Abusing mpi4jax by exposing HashableMPIType, which is used in mpi4jax interface, from _src
+from mpi4jax._src.utils import HashableMPIType
+
+
 from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
 from shallow_water.state import create_local_field_zeros
 from shallow_water.exchange_halos import exchange_field_halos
-from shallow_water.runtime_context import mpi4py_comm
 
-rank = mpi4py_comm.Get_rank()
-size = mpi4py_comm.Get_size()
+mpi4jax_comm = MPI.COMM_WORLD
+rank = mpi4jax_comm.Get_rank()
+size = mpi4jax_comm.Get_size()
 
 def test_exchange_halos():
     assert size <= 4
@@ -30,7 +35,7 @@ def test_exchange_halos():
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
 
-    new_field, _, _ = exchange_field_halos(field, geometry)
+    new_field, _, _ = exchange_field_halos(field, geometry, HashableMPIType(mpi4jax_comm))
 
 
     if size == 1:
@@ -78,7 +83,7 @@ def test_exchange_halos_2():
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
 
-    new_field, _, _ = exchange_field_halos(field, geometry)
+    new_field, _, _ = exchange_field_halos(field, geometry, HashableMPIType(mpi4jax_comm))
 
 
     if size == 1:
@@ -139,7 +144,7 @@ def test_exchange_halos_jvp():
 
     def exchange_field_halos_jvp(field, dfield, geometry):
         def exchange_field_halos_wrapper(field):
-            new_field, _, _ = exchange_field_halos(field, geometry)
+            new_field, _, _ = exchange_field_halos(field, geometry, HashableMPIType(mpi4jax_comm))
             return new_field
         primals, tangents = jvp(exchange_field_halos_wrapper, (field,), (dfield,))
         return primals, tangents
@@ -205,7 +210,7 @@ def test_exchange_halos_vjp():
 
     def exchange_field_halos_vjp(field, Dfield, geometry):
         def exchange_field_halos_wrapper(field):
-            new_field, field, _ = exchange_field_halos(field, geometry)
+            new_field, field, _ = exchange_field_halos(field, geometry, HashableMPIType(mpi4jax_comm))
             return new_field, field
         primals, exchange_vjp = vjp(exchange_field_halos_wrapper, field)
         cotangents = exchange_vjp(Dfield)
