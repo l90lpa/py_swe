@@ -8,7 +8,7 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 
 
-from shallow_water.geometry import create_par_geometry, RectangularDomain, at_locally_owned
+from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, RectangularDomain, at_locally_owned
 from shallow_water.state import create_local_field_zeros
 from shallow_water.exchange_halos import exchange_field_halos
 
@@ -31,7 +31,9 @@ def test_exchange_halos():
         assert False
 
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+    
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
 
@@ -79,7 +81,9 @@ def test_exchange_halos_2():
 
     domain = RectangularDomain(1,4)
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
 
@@ -138,7 +142,9 @@ def test_exchange_halos_jvp():
         assert False
 
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
 
@@ -204,7 +210,9 @@ def test_exchange_halos_vjp():
         assert False
 
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
 

@@ -29,15 +29,24 @@ class ProcessGridInfo:
     nxprocs:   int    # Size of the processor grid in the x direction
     nyprocs:   int    # Size of the processor grid in the y direction
 
+# @dataclass(eq=True, frozen=True)
+# class ProcessGridLocalTopology:
+#     north: int
+#     south: int
+#     east: int
+#     west: int
+
+ProcessGridLocalTopology = namedtuple('ProcessGridLocalTopology', 'north south east west')
+
 @dataclass(eq=True, frozen=True)
-class ProcessGridLocalTopology:
+class HaloDepth:
     north: int
     south: int
     east: int
     west: int
 
 @dataclass(eq=True, frozen=True)
-class HaloDepth:
+class GhostDepth:
     north: int
     south: int
     east: int
@@ -48,61 +57,65 @@ class ParGeometry:
     pg_info: ProcessGridInfo
     pg_local_topology: ProcessGridLocalTopology
     halo_depth: HaloDepth
-    locally_owned_extent_x: int
-    locally_owned_extent_y: int
+    local_domain_extent_x: int
+    local_domain_extent_y: int
+    ghost_depth: GhostDepth
 
-def get_locally_owned_shape(geometry: ParGeometry):
-    shape = (
-        geometry.locally_owned_extent_x,
-        geometry.locally_owned_extent_y,
-    )
-    return shape
-
-def get_locally_active_shape(geometry: ParGeometry):
-    shape = (
-        geometry.locally_owned_extent_x + geometry.halo_depth.west + geometry.halo_depth.east,
-        geometry.locally_owned_extent_y + geometry.halo_depth.south + geometry.halo_depth.north,
-    )
-    return shape
 
 def get_locally_owned_range(geometry: ParGeometry):
 
     start_x = geometry.halo_depth.west
     start_y = geometry.halo_depth.south
-    end_x = (start_x + geometry.locally_owned_extent_x)
-    end_y = (start_y + geometry.locally_owned_extent_y)
+    end_x = (start_x + geometry.ghost_depth.west + geometry.local_domain_extent_x + geometry.ghost_depth.east)
+    end_y = (start_y + geometry.ghost_depth.south + geometry.local_domain_extent_y + geometry.ghost_depth.north)
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
+
 
 def at_locally_owned(geometry: ParGeometry):
     start, end = get_locally_owned_range(geometry)
     return slice(start.x, end.x), slice(start.y, end.y)
 
-def at_locally_owned_interior(geometry: ParGeometry):
-    start, end = get_locally_owned_range(geometry)
 
-    start_x = start.x + ( 1 if geometry.pg_local_topology.west  == -1 else 0)
-    end_x   = end.x   + (-1 if geometry.pg_local_topology.east  == -1 else 0)
-    start_y = start.y + ( 1 if geometry.pg_local_topology.south == -1 else 0)
-    end_y   = end.y   + (-1 if geometry.pg_local_topology.north == -1 else 0)
+def get_local_domain_range(geometry: ParGeometry):
 
-    x_slice = slice(start_x, end_x)
-    y_slice = slice(start_y, end_y)
+    start_x = geometry.ghost_depth.west + geometry.halo_depth.west
+    start_y = geometry.ghost_depth.south + geometry.halo_depth.south
+    end_x   = start_x + geometry.local_domain_extent_x
+    end_y   = start_y + geometry.local_domain_extent_y
 
-    return x_slice, y_slice
+    return Vec2(start_x, start_y), Vec2(end_x, end_y)
+
+
+def at_local_domain(geometry: ParGeometry):
+    start, end = get_local_domain_range(geometry)
+    return slice(start.x, end.x), slice(start.y, end.y)
+
 
 def get_locally_active_range(geometry: ParGeometry):
 
     start_x = 0
     start_y = 0
-    end_x = geometry.halo_depth.west + geometry.locally_owned_extent_x + geometry.halo_depth.east
-    end_y = geometry.halo_depth.south + geometry.locally_owned_extent_y + geometry.halo_depth.north
+    
+    end_x = (geometry.halo_depth.west + geometry.ghost_depth.west + 
+             geometry.local_domain_extent_x + 
+             geometry.halo_depth.east + geometry.ghost_depth.east)
+    
+    end_y = (geometry.halo_depth.south + geometry.ghost_depth.south + 
+             geometry.local_domain_extent_y + 
+             geometry.halo_depth.north + geometry.ghost_depth.north)
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
+
+def get_locally_active_shape(geometry: ParGeometry):
+    _, shape = get_locally_active_range(geometry)
+    return (shape.x, shape.y)
+
 
 def at_locally_active(geometry: ParGeometry):
     start, end = get_locally_active_range(geometry)
     return (slice(start.x, end.x), slice(start.y, end.y))
+
 
 def coord_to_index_xy_order(bounds: Vec2, coord: Vec2):
     index = coord.x + bounds.x * coord.y
@@ -155,7 +168,7 @@ def partition_rectangular_domain(domain: RectangularDomain, num_subdomains):
     Partition = namedtuple("Partition", "subdomains nxprocs nyprocs")
     return Partition(subdomains, nxprocs, nyprocs)
 
-def create_par_geometry(rank, size, domain: RectangularDomain):
+def create_domain_par_geometry(rank, size, domain: RectangularDomain):
 
     subdomains, nxprocs, nyprocs = partition_rectangular_domain(domain, size)
 
@@ -187,9 +200,30 @@ def create_par_geometry(rank, size, domain: RectangularDomain):
         west = -1
 
     neighbor_topology = [north, south, east, west]
-    halo_depth = list(map(lambda neighbor_id: 1 if neighbor_id != -1 else 0, neighbor_topology))
 
-    geometry = ParGeometry(pg_info, ProcessGridLocalTopology(*neighbor_topology), HaloDepth(*halo_depth), local_subdomain.local_nx, local_subdomain.local_ny)
+    geometry = ParGeometry(pg_info, ProcessGridLocalTopology(*neighbor_topology), HaloDepth(0,0,0,0), local_subdomain.local_nx, local_subdomain.local_ny, GhostDepth(0,0,0,0))
 
     return geometry
+
+def add_ghost_geometry(geometry: ParGeometry, depth):
+    
+    ghost_depth = list(map(lambda neighbor_id: 1 if neighbor_id == -1 else 0, geometry.pg_local_topology))
+
+    return ParGeometry(geometry.pg_info,
+                       geometry.pg_local_topology,
+                       geometry.halo_depth,
+                       geometry.local_domain_extent_x,
+                       geometry.local_domain_extent_y,
+                       GhostDepth(*ghost_depth))
+
+def add_halo_geometry(geometry: ParGeometry, depth):
+    
+    halo_depth = list(map(lambda neighbor_id: 1 if neighbor_id != -1 else 0, geometry.pg_local_topology))
+
+    return ParGeometry(geometry.pg_info,
+                       geometry.pg_local_topology,
+                       HaloDepth(*halo_depth),
+                       geometry.local_domain_extent_x,
+                       geometry.local_domain_extent_y,
+                       geometry.ghost_depth)
 

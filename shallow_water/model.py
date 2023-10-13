@@ -6,7 +6,7 @@ import mpi4jax
 from mpi4jax._src.utils import unpack_hashable
 
 from .exchange_halos import exchange_state_halos
-from .geometry import ParGeometry, get_locally_owned_range, at_locally_owned, at_locally_owned_interior
+from .geometry import ParGeometry, get_locally_owned_range, at_local_domain
 from .state import State
 from .ode_integrate import integrate, forward_euler_solver_step
 
@@ -41,7 +41,7 @@ def apply_model(s_new, s, geometry: ParGeometry, b, dt: float, dx: float, dy: fl
              -0.5 * dtdx * (h[i,j] - b[i,j]) * (u[i_plus_1, j] - u[i_minus_1, j])
              -0.5 * dtdy * (h[i,j] - b[i,j]) * (v[i, j_plus_1] - v[i, j_minus_1]))
     
-    interior = at_locally_owned_interior(geometry)
+    interior = at_local_domain(geometry)
     u_new = u_new.at[interior].set(u_new_interior / dt)
     v_new = v_new.at[interior].set(v_new_interior / dt)
     h_new = h_new.at[interior].set(h_new_interior / dt)

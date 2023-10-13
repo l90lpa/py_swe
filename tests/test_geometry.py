@@ -1,6 +1,6 @@
 import pytest
 
-from shallow_water.geometry import RectangularDomain, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_domain, create_par_geometry
+from shallow_water.geometry import RectangularDomain, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_domain, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry
 
 def test_process_coord_index_conversion():
 
@@ -63,16 +63,23 @@ def test_create_par_geometry():
     size = 4
     domain = RectangularDomain(17,17)
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+    geometry = add_ghost_geometry(geometry, 1)
 
     assert geometry.pg_info.nxprocs == 2 and geometry.pg_info.nyprocs == 2
 
-    assert geometry.locally_owned_extent_x == 9 and geometry.locally_owned_extent_y == 9
+    assert geometry.local_domain_extent_x == 9 and geometry.local_domain_extent_y == 9
 
     assert geometry.halo_depth.north == 0
     assert geometry.halo_depth.south == 1
     assert geometry.halo_depth.east == 0
     assert geometry.halo_depth.west == 1
+
+    assert geometry.ghost_depth.north == 1
+    assert geometry.ghost_depth.south == 0
+    assert geometry.ghost_depth.east == 1
+    assert geometry.ghost_depth.west == 0
 
     assert geometry.pg_local_topology.north == -1
     assert geometry.pg_local_topology.south == 1
@@ -85,16 +92,23 @@ def test_create_par_geometry_2():
     size = 9
     domain = RectangularDomain(3,3)
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+    geometry = add_ghost_geometry(geometry, 1)
 
     assert geometry.pg_info.nxprocs == 3 and geometry.pg_info.nyprocs == 3
 
-    assert geometry.locally_owned_extent_x == 1 and geometry.locally_owned_extent_y == 1
+    assert geometry.local_domain_extent_x == 1 and geometry.local_domain_extent_y == 1
 
     assert geometry.halo_depth.north == 1
     assert geometry.halo_depth.south == 1
     assert geometry.halo_depth.east == 1
     assert geometry.halo_depth.west == 1
+
+    assert geometry.ghost_depth.north == 0
+    assert geometry.ghost_depth.south == 0
+    assert geometry.ghost_depth.east == 0
+    assert geometry.ghost_depth.west == 0
 
     assert geometry.pg_local_topology.north == 7
     assert geometry.pg_local_topology.south == 1

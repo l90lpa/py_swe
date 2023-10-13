@@ -3,10 +3,12 @@ import pytest
 import jax.numpy as jnp
 import numpy as np
 
-from shallow_water.geometry import create_par_geometry, RectangularDomain, get_locally_owned_range, at_locally_owned
+from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, RectangularDomain, get_locally_owned_range, at_locally_owned
 from shallow_water.state import create_local_field_ones, gather_global_field
-from shallow_water.runtime_context import mpi4py_comm
 
+from mpi4py import MPI
+
+mpi4py_comm = MPI.COMM_WORLD
 rank = mpi4py_comm.Get_rank()
 size = mpi4py_comm.Get_size()
 root = 0
@@ -17,7 +19,9 @@ def test_gather_global_field():
     
     domain = RectangularDomain(9,9)
 
-    geometry = create_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = add_halo_geometry(geometry, 1)
+
     field = (rank + 1) * create_local_field_ones(geometry, jnp.float32)
     start, end = get_locally_owned_range(geometry)
 
