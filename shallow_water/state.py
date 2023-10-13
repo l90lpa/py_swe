@@ -29,6 +29,10 @@ def create_local_field_ones(geometry: ParGeometry, dtype):
     shape = get_locally_active_shape(geometry)
     return jnp.ones(shape, dtype=dtype)
 
+def create_local_field_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
+    shape = get_locally_active_shape(geometry)
+    return rng.random(shape, dtype=dtype)
+
 def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4py_comm):
     '''Gather the distributed blocks of a field into a single 2D array on `rank == root`.
     Warning: one must ensure that the communicator argument, `mpi4py_comm`, is a communicator that is not used with any mpi4jax routines, 
