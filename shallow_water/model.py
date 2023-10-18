@@ -95,7 +95,7 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     g = 9.81
 
-    local_max_h = jnp.max(h[at_locally_owned(geometry)])
+    local_max_h = jnp.max(h[at_local_domain(geometry)])
     
     # Currently mpi4jax.Allreduce only supports MPI.SUM op, hence we cannot currently do the following:
     # global_max_h, token = mpi4py_comm.Allreduce(local_max_h, MPI.MAX, comm=mpi4jax_comm, token=token)
