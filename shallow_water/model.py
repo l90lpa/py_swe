@@ -84,7 +84,7 @@ def apply_boundary_conditions(s_new, s, geometry):
 
 def shallow_water_dynamics(s_new, s, token, geometry, comm_wrapped, b, dt, dx, dy):
 
-    s_exc, s, token = exchange_state_halos(s, geometry, comm_wrapped)
+    s_exc, s, token = exchange_state_halos(s, geometry, comm_wrapped, token=token)
     s_new = apply_boundary_conditions(s_new, s_exc, geometry)
     s_new = apply_model(s_new, s_exc, geometry, b, dt, dx, dy)
 
