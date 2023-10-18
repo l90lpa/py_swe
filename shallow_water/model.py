@@ -108,7 +108,7 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     return jnp.sqrt(g * global_max_h), token
 
-def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
+def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     
     token = lax.create_token()
 
@@ -134,4 +134,9 @@ def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     
     s = fc[1]
 
+    return s
+
+
+def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
+    s = shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy)
     return s
