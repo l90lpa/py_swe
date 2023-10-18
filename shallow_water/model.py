@@ -82,7 +82,6 @@ def apply_boundary_conditions(s_new, s, geometry):
     return State(u_new, v_new, h_new)
 
 
-@partial(jit, static_argnames=['geometry', 'comm_wrapped'])
 def shallow_water_dynamics(s_new, s, token, geometry, comm_wrapped, b, dt, dx, dy):
 
     s_exc, s, token = exchange_state_halos(s, geometry, comm_wrapped)
@@ -92,7 +91,6 @@ def shallow_water_dynamics(s_new, s, token, geometry, comm_wrapped, b, dt, dx, d
     return s_new, s, token
 
 
-@partial(jit, static_argnames=['geometry', 'comm_wrapped'])
 def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     g = 9.81
@@ -110,8 +108,6 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     return jnp.sqrt(g * global_max_h), token
 
-
-@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
 def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     
     token = lax.create_token()
