@@ -9,7 +9,7 @@ jaxlib==0.4.14
 kiwisolver==1.4.5
 matplotlib==3.8.0
 ml-dtypes==0.2.0
-mpi4jax @ git+https://github.com/l90lpa/mpi4jax@2d2d19731b38afd4402fafb3594c687b221c3dbc
+mpi4jax @ git+https://github.com/l90lpa/mpi4jax@a11fdf2b63a408136be8449cd6c59dd8ef8c4d83
 mpi4py==3.1.4
 numpy==1.25.2
 opt-einsum==3.3.0
