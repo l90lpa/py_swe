@@ -1,11 +1,11 @@
-
+from math import floor, exp
 from collections import namedtuple
 
 import numpy as np
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node
 
-from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape
+from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape, at_locally_owned
 
 
 State = namedtuple('State', 'u v h')
@@ -32,6 +32,30 @@ def create_local_field_ones(geometry: ParGeometry, dtype):
 def create_local_field_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
     shape = get_locally_active_shape(geometry)
     return rng.random(shape, dtype=dtype)
+
+def create_local_field_unit_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
+    field = create_local_field_random(geometry, jnp.float64, rng=rng)
+    norm = jnp.linalg.norm(field)
+    if norm != 0:
+        field /= norm
+    return field
+
+def create_local_field_tsunami_height(geometry: ParGeometry, xmax, dx, ymax, dy):
+    h = create_local_field_zeros(geometry, jnp.float64)
+    xmid = xmax / 2.0
+    ymid = ymax / 2.0
+    sigma = floor(xmax / 20.0)
+
+    # ! Create a state with a tsunami pulse in it to initialize field h
+    local_origin_x = geometry.local_domain_origin_x
+    local_origin_y = geometry.local_domain_origin_y
+    x_slice, y_slice = at_locally_owned(geometry)
+    for i in range(x_slice.start, x_slice.stop):
+        for j in range(y_slice.start, y_slice.stop):
+            dsqr = ((i + local_origin_x) * dx - xmid) ** 2 + ((j + local_origin_y) * dy - ymid) ** 2
+            h = h.at[i,j].set(5000.0 + 30.0 * exp(-dsqr / sigma ** 2))
+
+    return h
 
 def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4py_comm):
     '''Gather the distributed blocks of a field into a single 2D array on `rank == root`.

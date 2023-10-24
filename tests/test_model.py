@@ -12,10 +12,8 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 
 from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularDomain, at_locally_owned,at_local_domain
-from shallow_water.state import create_local_field_zeros, gather_global_field
+from shallow_water.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
 from shallow_water.model import advance_model_n_steps
-from shallow_water.state import State
-from shallow_water.scan_functions import jax_scan as scan_fnc
 
 def create_par_geometry(rank, size, domain):
     domain = RectangularDomain(domain.nx - 2, domain.ny - 2)
@@ -116,24 +114,8 @@ def test_model_3():
 
     u = jnp.copy(zero_field)
     v = jnp.copy(zero_field)
-    h = jnp.copy(zero_field)
-    # Create tsunami pluse IC
-    xmid = xmax / 2.0
-    ymid = ymax / 2.0
-    sigma = floor(xmax / 20.0)
-    h_global = np.zeros((nx,ny), dtype=jnp.float64)
-    for j in range(ny):
-        for i in range(nx):
-            dsqr = ((i) * dx - xmid)**2 + ((j) * dy - ymid)**2
-            h_global[i,j] = (5000.0 + (5030.0 - 5000.0) * exp(-dsqr / sigma**2))
-    if rank == 0:
-        h = h.at[at_locally_owned(geometry)].set(h_global[0:5, 0:5])
-    if rank == 1:
-        h = h.at[at_locally_owned(geometry)].set(h_global[5:11, 0:5])
-    if rank == 2:
-        h = h.at[at_locally_owned(geometry)].set(h_global[0:5, 5:11])
-    if rank == 3:
-        h = h.at[at_locally_owned(geometry)].set(h_global[5:11, 5:11])
+    h = create_local_field_tsunami_height(geometry, xmax, dx, ymax, dy)
+
     s = State(u, v, h)
 
     b = jnp.copy(zero_field)
