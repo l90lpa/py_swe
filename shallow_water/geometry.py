@@ -57,9 +57,11 @@ class ParGeometry:
     pg_info: ProcessGridInfo
     pg_local_topology: ProcessGridLocalTopology
     halo_depth: HaloDepth
-    local_domain_extent_x: int
-    local_domain_extent_y: int
+    local_domain_extent_x: int # the x-extent of local domain
+    local_domain_extent_y: int # the y-extent of local domain
     ghost_depth: GhostDepth
+    local_domain_origin_x: int # the global x-coord of the local domain origin
+    local_domain_origin_y: int # the global y-coord of the local domain origin
 
 
 def get_locally_owned_range(geometry: ParGeometry):
@@ -201,7 +203,14 @@ def create_domain_par_geometry(rank, size, domain: RectangularDomain):
 
     neighbor_topology = [north, south, east, west]
 
-    geometry = ParGeometry(pg_info, ProcessGridLocalTopology(*neighbor_topology), HaloDepth(0,0,0,0), local_subdomain.local_nx, local_subdomain.local_ny, GhostDepth(0,0,0,0))
+    geometry = ParGeometry(pg_info,
+                           ProcessGridLocalTopology(*neighbor_topology),
+                           HaloDepth(0,0,0,0),
+                           local_subdomain.local_nx,
+                           local_subdomain.local_ny,
+                           GhostDepth(0,0,0,0),
+                           local_subdomain.start_x,
+                           local_subdomain.start_y)
 
     return geometry
 
@@ -214,7 +223,9 @@ def add_ghost_geometry(geometry: ParGeometry, depth):
                        geometry.halo_depth,
                        geometry.local_domain_extent_x,
                        geometry.local_domain_extent_y,
-                       GhostDepth(*ghost_depth))
+                       GhostDepth(*ghost_depth),
+                       geometry.local_domain_origin_x,
+                       geometry.local_domain_origin_y)
 
 def add_halo_geometry(geometry: ParGeometry, depth):
     
@@ -225,5 +236,7 @@ def add_halo_geometry(geometry: ParGeometry, depth):
                        HaloDepth(*halo_depth),
                        geometry.local_domain_extent_x,
                        geometry.local_domain_extent_y,
-                       geometry.ghost_depth)
+                       geometry.ghost_depth,
+                       geometry.local_domain_origin_x,
+                       geometry.local_domain_origin_y)
 
