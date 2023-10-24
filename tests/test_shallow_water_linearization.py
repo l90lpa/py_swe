@@ -17,6 +17,7 @@ from shallow_water.model import advance_model_n_steps
 from shallow_water.geometry import RectangularDomain, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
 from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random
 from shallow_water.tlm import advance_tlm_n_steps
+from shallow_water.adm import advance_adm_n_steps
 
 import validation.linearization_checks as lc
 
@@ -113,6 +114,30 @@ if __name__ == "__main__":
                      padded_dstate_new.v[at_local_domain(padded_geometry)],
                      padded_dstate_new.h[at_local_domain(padded_geometry)])
     
+    def adm(s, Ds):
+        padded_geometry = add_halo_geometry(geometry, 1)
+        padded_geometry = add_ghost_geometry(padded_geometry, 1)
+
+        zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
+
+        u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
+        v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
+        h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
+        padded_state = State(u, v, h)
+
+        Du = zeros_field.at[at_local_domain(padded_geometry)].set(Ds.u)
+        Dv = zeros_field.at[at_local_domain(padded_geometry)].set(Ds.v)
+        Dh = zeros_field.at[at_local_domain(padded_geometry)].set(Ds.h)
+        padded_dstate = State(Du, Dv, Dh)
+
+        padded_state_new, padded_dstate_new = advance_adm_n_steps(padded_state, padded_dstate, padded_geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+
+        return State(padded_state_new.u[at_local_domain(padded_geometry)],
+                     padded_state_new.v[at_local_domain(padded_geometry)],
+                     padded_state_new.h[at_local_domain(padded_geometry)]), State(padded_dstate_new.u[at_local_domain(padded_geometry)],
+                     padded_dstate_new.v[at_local_domain(padded_geometry)],
+                     padded_dstate_new.h[at_local_domain(padded_geometry)])
+
     ### Tests
 
     if rank == 0:
@@ -124,5 +149,11 @@ if __name__ == "__main__":
     if rank == 0:
         print("Test TLM Approximation:")
     success, relative_error = lc.testTLMApprox(m, tlm, randomInput, axpyOp, norm, 1.0e-13)
+    if rank == 0:
+        print("success = ", success, ", relative error = ", relative_error)
+
+    if rank == 0:
+        print("Test ADM Approximation:")
+    success, relative_error = lc.testADMApprox(tlm, adm, randomInput, randomOutput, dot, 1.0e-13)
     if rank == 0:
         print("success = ", success, ", relative error = ", relative_error)
