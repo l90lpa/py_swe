@@ -15,7 +15,7 @@ import mpi4jax
 
 from shallow_water.model import advance_model_n_steps
 from shallow_water.geometry import RectangularDomain, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
-from shallow_water.state import State, create_local_field_zeros, create_local_field_random
+from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random
 from shallow_water.tlm import advance_tlm_n_steps
 
 import validation.linearization_checks as lc
@@ -23,6 +23,7 @@ import validation.linearization_checks as lc
 mpi4jax_comm = MPI.COMM_WORLD
 rank = mpi4jax_comm.Get_rank()
 size = mpi4jax_comm.Get_size()
+
 
 def create_padded_b(geometry, dtype):
     padded_geometry = add_halo_geometry(geometry, 1)
@@ -48,14 +49,14 @@ if __name__ == "__main__":
     ### Functions
 
     def randomInput():
-        return State(create_local_field_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_random(geometry, jnp.float64, rng=rng),)
+        return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
     
     def randomOutput():
-        return State(create_local_field_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_random(geometry, jnp.float64, rng=rng),)
+        return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
     
     def axpyOp(a,x,y):
         if isinstance(y, type(None)):
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     def m(s):
         padded_geometry = add_halo_geometry(geometry, 1)
         padded_geometry = add_ghost_geometry(padded_geometry, 1)
-        
+
         zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
 
         u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
@@ -83,7 +84,7 @@ if __name__ == "__main__":
         padded_state = State(u, v, h)
 
         padded_state_new = advance_model_n_steps(padded_state, padded_geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
-        
+
         return State(padded_state_new.u[at_local_domain(padded_geometry)],
                      padded_state_new.v[at_local_domain(padded_geometry)],
                      padded_state_new.h[at_local_domain(padded_geometry)])
@@ -91,27 +92,27 @@ if __name__ == "__main__":
     def tlm(s, ds):
         padded_geometry = add_halo_geometry(geometry, 1)
         padded_geometry = add_ghost_geometry(padded_geometry, 1)
-        
+
         zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
-        
+
         u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
         v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
         h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
         padded_state = State(u, v, h)
-        
+
         du = zeros_field.at[at_local_domain(padded_geometry)].set(ds.u)
         dv = zeros_field.at[at_local_domain(padded_geometry)].set(ds.v)
         dh = zeros_field.at[at_local_domain(padded_geometry)].set(ds.h)
         padded_dstate = State(du, dv, dh)
-        
+
         padded_state_new, padded_dstate_new = advance_tlm_n_steps(padded_state, padded_dstate, padded_geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
         return State(padded_state_new.u[at_local_domain(padded_geometry)],
                      padded_state_new.v[at_local_domain(padded_geometry)],
                      padded_state_new.h[at_local_domain(padded_geometry)]), State(padded_dstate_new.u[at_local_domain(padded_geometry)],
                      padded_dstate_new.v[at_local_domain(padded_geometry)],
-                     padded_dstate_new.h[at_local_domain(padded_geometry)])  
-
+                     padded_dstate_new.h[at_local_domain(padded_geometry)])
+    
     ### Tests
 
     if rank == 0:
