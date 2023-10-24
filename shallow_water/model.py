@@ -84,7 +84,7 @@ def apply_boundary_conditions(s_new, s, geometry):
 
 def shallow_water_dynamics(s_new, s, token, geometry, comm_wrapped, b, dt, dx, dy):
 
-    s_exc, s, token = exchange_state_halos(s, geometry, comm_wrapped, token=token)
+    s_exc, token = exchange_state_halos(s, geometry, comm_wrapped, token)
     s_new = apply_boundary_conditions(s_new, s_exc, geometry)
     s_new = apply_model(s_new, s_exc, geometry, b, dt, dx, dy)
 
@@ -108,9 +108,9 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     return jnp.sqrt(g * global_max_h), token
 
-def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
-    
-    token = lax.create_token()
+@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
+def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
+
 
     max_wavespeed, token = calculate_max_wavespeed(s.h, geometry, comm_wrapped, token)
     maxdt = 0.68 * jnp.min(jnp.array([dx, dy])) / max_wavespeed
@@ -133,10 +133,13 @@ def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     fc = integrate(shallow_water_dynamics_, ic, dt, n_steps, forward_euler_solver_step_)
     
     s = fc[1]
+    token = fc[2]
 
-    return s
+    return s, token
 
 
+# This is a convience wrapper
 def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
-    s = shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy)
+    token = jnp.empty((1,))
+    s, token = shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
     return s

@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from jax import jit
-from jax.lax import create_token
+import jax.numpy as jnp
 import mpi4jax
 # Abusing mpi4jax by exposing unpack_hashable, to unpack HashableMPIType which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import unpack_hashable
@@ -8,10 +8,10 @@ from mpi4jax._src.utils import unpack_hashable
 from .geometry import ParGeometry, get_locally_owned_range
 from .state import State
 
-def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token=None):
+def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token):
 
     if geometry.pg_info.nxprocs * geometry.pg_info.nyprocs == 1:
-        return field, field, None
+        return field, token
 
     comm = unpack_hashable(comm_wrapped)
     local_topology = geometry.pg_local_topology
@@ -47,8 +47,7 @@ def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token=None)
     ]
 
     new_field = jnp.copy(field)
-    if token is None:
-        token = create_token()
+
     for send_name, recv_name in send_recv_pairs:
         send_id = neighbor_ids[send_name]
         recv_id = neighbor_ids[recv_name]
@@ -58,24 +57,22 @@ def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token=None)
         if send_id == -1 and recv_id == -1:
             continue
         elif send_id == -1:
-            recv_buf, token = mpi4jax.recv(recv_buf, recv_id, comm=comm, token=token)
+            recv_buf, token = mpi4jax.recv(recv_buf, token, recv_id, comm=comm)
             new_field = new_field.at[halo_slices[recv_name]].set(recv_buf)
         elif recv_id == -1:
-            send_buf, token = mpi4jax.send(send_buf, send_id, comm=comm, token=token)
-            field = field.at[halo_source_slices[send_name]].set(send_buf)
+            token = mpi4jax.send(send_buf, token, send_id, comm=comm)
         else:
-            recv_buf, token = mpi4jax.sendrecv(send_buf, recv_buf, recv_id, send_id, comm=comm, token=token)
+            recv_buf, token = mpi4jax.sendrecv(send_buf, recv_buf, token, recv_id, send_id, comm=comm)
             new_field = new_field.at[halo_slices[recv_name]].set(recv_buf)
         
-    return new_field, field, token
+    return new_field, token
 
-
-def exchange_state_halos(s, geometry, comm_wrapped, token=None):
+def exchange_state_halos(s, geometry, comm_wrapped, token):
 
     (u, v, h) = s
 
-    u_new, u, token = exchange_field_halos(u, geometry, comm_wrapped, token=token)
-    v_new, v, token = exchange_field_halos(v, geometry, comm_wrapped, token=token)
-    h_new, h, token = exchange_field_halos(h, geometry, comm_wrapped, token=token)
+    u_new, token = exchange_field_halos(u, geometry, comm_wrapped, token)
+    v_new, token = exchange_field_halos(v, geometry, comm_wrapped, token)
+    h_new, token = exchange_field_halos(h, geometry, comm_wrapped, token)
 
-    return State(u_new, v_new, h_new), State(u, v, h), token
+    return State(u_new, v_new, h_new), token
