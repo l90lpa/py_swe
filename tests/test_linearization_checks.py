@@ -1,28 +1,22 @@
 
-from math import sqrt
-
 import numpy as np
 
 import validation.linearization_checks as lc
 
-from jax import config
-config.update("jax_enable_x64", True)
-import jax.numpy as jnp
-
-
+## Parameters
 shape = (3,3)
-dtype = jnp.float64
+dtype = np.float64
 rng = np.random.default_rng(12345)
 
 ## argument generators
 def primalArg():
-    return jnp.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
+    return np.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
 
 def tangentArg():
-    return jnp.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
+    return np.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
 
 def cotangentArg():
-    return jnp.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
+    return np.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
 
 ## vector field operations for the arguments
 def scale(a, x):
@@ -32,11 +26,11 @@ def add(x, y):
     return x + y
         
 def dot(x,y):
-    dot_ = jnp.sum(x * y)
+    dot_ = np.sum(x * y)
     return dot_
 
 def norm(x):
-    return jnp.sqrt(dot(x,x))
+    return np.sqrt(dot(x,x))
 
 ## test function and its linearizations
 def identity(s):
