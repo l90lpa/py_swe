@@ -121,7 +121,7 @@ def test_tlm_approx():
     assert success
 
 def test_spectral_theorem():
-    success, absolute_error = lc.testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-15)
+    success, absolute_error = lc.testSpectralTheorem(tlm, adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-15)
     if rank == 0:
         print(f"Test Spectral Theorem (\"Dot Product Test\"): success ={success}, absolute error={absolute_error}")
     assert success

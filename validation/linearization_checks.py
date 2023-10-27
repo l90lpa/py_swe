@@ -46,7 +46,7 @@ def testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, tol):
     return min_relative_error < tol, min_relative_error
 
 
-def testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, tol):
+def testSpectralTheorem(tlm, adm, primalArg, tangentArg, cotangentArg, dot, tol):
     from copy import deepcopy
 
     u = primalArg()

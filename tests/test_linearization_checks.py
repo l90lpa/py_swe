@@ -60,5 +60,5 @@ if __name__ == "__main__":
     print("success = ", success, ", relative error = ", relative_error)
 
     print("Test ADM Approximation:")
-    success, absolute_error = lc.testADMApprox(identity_tlm, identity_adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-15)
+    success, absolute_error = lc.testSpectralTheorem(identity_tlm, identity_adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-15)
     print("success = ", success, ", absolute_error = ", absolute_error)
