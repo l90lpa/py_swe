@@ -16,17 +16,22 @@ if __name__ == "__main__":
     dtype = jnp.float64
     rng = np.random.default_rng(12345)
 
-    def randomInput():
-        return rng.random(shape, dtype=dtype)
+    ## argument generators
+    def primalArg():
+        return jnp.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
+
+    def tangentArg():
+        return jnp.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
     
-    def randomOutput():
-        return rng.random(shape, dtype=dtype)
+    def cotangentArg():
+        return jnp.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
     
-    def axpyOp(a,x,y):
-        if isinstance(y, type(None)):
-            return a * x
-        else:
-            return (a * x) + y
+    ## vector field operations for the arguments
+    def scale(a, x):
+        return a * x
+    
+    def add(x, y):
+        return x + y
             
     def dot(x,y):
         dot_ = jnp.sum(x * y)
@@ -35,7 +40,7 @@ if __name__ == "__main__":
     def norm(x):
         return jnp.sqrt(dot(x,x))
 
-
+    ## test function and its linearizations
     def identity(s):
         return s
     
@@ -47,13 +52,13 @@ if __name__ == "__main__":
     
 
     print("Test TLM Linearity:")
-    success, absolute_error = lc.testTLMLinearity(identity_tlm, randomInput, axpyOp, norm, 1.0e-15)
+    success, absolute_error = lc.testTLMLinearity(identity_tlm, primalArg, tangentArg, scale, norm, 1.0e-15)
     print("success = ", success, ", absolute_error = ", absolute_error)
 
     print("Test TLM Approximation:")
-    success, relative_error = lc.testTLMApprox(identity, identity_tlm, randomInput, axpyOp, norm, 1.0e-15)
+    success, relative_error = lc.testTLMApprox(identity, identity_tlm, primalArg, tangentArg, scale, add, norm, 1.0e-15)
     print("success = ", success, ", relative error = ", relative_error)
 
     print("Test ADM Approximation:")
-    success, absolute_error = lc.testADMApprox(identity_tlm, identity_adm, randomInput, randomOutput, dot, 1.0e-15)
+    success, absolute_error = lc.testADMApprox(identity_tlm, identity_adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-15)
     print("success = ", success, ", absolute_error = ", absolute_error)

@@ -15,7 +15,7 @@ import mpi4jax
 
 from shallow_water.model import advance_model_n_steps
 from shallow_water.geometry import RectangularDomain, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
-from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random
+from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_random, create_local_field_tsunami_height, create_local_field_ones
 from shallow_water.tlm import advance_tlm_n_steps
 from shallow_water.adm import advance_adm_n_steps
 
@@ -49,29 +49,36 @@ if __name__ == "__main__":
 
     ### Functions
 
-    def randomInput():
+    def primalArg():
+        return State(create_local_field_zeros(geometry, jnp.float64),
+                     create_local_field_zeros(geometry, jnp.float64),
+                     create_local_field_ones(geometry, jnp.float64),)
+
+    def tangentArg():
         return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
                      create_local_field_unit_random(geometry, jnp.float64, rng=rng),
                      create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
     
-    def randomOutput():
+    def cotangentArg():
         return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
                      create_local_field_unit_random(geometry, jnp.float64, rng=rng),
                      create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
     
-    def axpyOp(a,x,y):
-        if isinstance(y, type(None)):
-            return State(*map(lambda z: a * z, x))
-        else:
-            return State(*map(lambda z: a * z[0] + z[1], zip(x, y)))
+    def scale(a,x):
+        return State(a * x.u, a * x.v, a * x.h)
+        
+    def add(x,y):
+        return State(x.u + y.u, x.v + y.v, x.h + y.h)
             
     def dot(x,y):
-        dot_ = sum(map(lambda z: jnp.sum(z[0] ** 2 + z[1] ** 2), zip(x, y)))
+        dot_  = jnp.sum(x.u * y.u)
+        dot_ += jnp.sum(x.v * y.v)
+        dot_ += jnp.sum(x.h * y.h)
         dot_, _ = mpi4jax.allreduce(dot_, op=MPI.SUM, comm=mpi4jax_comm)
-        return dot_
+        return dot_.item()
     
     def norm(x):
-        return jnp.sqrt(dot(x,x))
+        return jnp.sqrt(dot(x,x)).item()
 
     def m(s):
         padded_geometry = add_halo_geometry(geometry, 1)
@@ -142,18 +149,18 @@ if __name__ == "__main__":
 
     if rank == 0:
         print("Test TLM Linearity:")
-    success, absolute_error = lc.testTLMLinearity(tlm, randomInput, axpyOp, norm, 1.0e-13)
+    success, absolute_error = lc.testTLMLinearity(tlm, primalArg, tangentArg, scale, norm, 1.0e-13)
     if rank == 0:
         print("success = ", success, ", absolute_error = ", absolute_error)
 
     if rank == 0:
         print("Test TLM Approximation:")
-    success, relative_error = lc.testTLMApprox(m, tlm, randomInput, axpyOp, norm, 1.0e-13)
+    success, relative_error = lc.testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, 1.0e-13)
     if rank == 0:
         print("success = ", success, ", relative error = ", relative_error)
 
     if rank == 0:
         print("Test ADM Approximation:")
-    success, relative_error = lc.testADMApprox(tlm, adm, randomInput, randomOutput, dot, 1.0e-13)
+    success, relative_error = lc.testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, norm, 1.0e-13)
     if rank == 0:
         print("success = ", success, ", relative error = ", relative_error)
