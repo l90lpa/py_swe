@@ -31,10 +31,11 @@ def create_local_field_ones(geometry: ParGeometry, dtype):
 
 def create_local_field_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
     shape = get_locally_active_shape(geometry)
-    return rng.random(shape, dtype=dtype)
+    # return rng.random(shape, dtype=dtype)
+    return np.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
 
 def create_local_field_unit_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
-    field = create_local_field_random(geometry, jnp.float64, rng=rng)
+    field = create_local_field_random(geometry, dtype, rng=rng)
     norm = jnp.linalg.norm(field)
     if norm != 0:
         field /= norm
