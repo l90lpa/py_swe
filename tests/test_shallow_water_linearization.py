@@ -32,99 +32,96 @@ def create_padded_b(geometry, dtype):
     return create_local_field_zeros(padded_geometry, dtype)
 
 
-if __name__ == "__main__":
+### Parameters
 
-    ### Parameters
+xmax = ymax = 100000
+nx = ny = 101
+dx = dy = xmax / (nx - 1.0)
+g = 9.81
+dt = 0.68 * dx / sqrt(g * 5030)
+num_steps = 10
+domain = RectangularDomain(nx, ny)
+geometry = create_domain_par_geometry(rank, size, domain)
+b = create_padded_b(geometry, jnp.float64)
+rng = np.random.default_rng(12345)
+
+### Functions
+
+def primalArg():
+    return State(create_local_field_zeros(geometry, jnp.float64),
+                    create_local_field_zeros(geometry, jnp.float64),
+                    create_local_field_ones(geometry, jnp.float64),)
+
+def tangentArg():
+    return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
+
+def cotangentArg():
+    return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
+
+def scale(a,x):
+    return State(a * x.u, a * x.v, a * x.h)
     
-    xmax = ymax = 100000
-    nx = ny = 101
-    dx = dy = xmax / (nx - 1.0)
-    g = 9.81
-    dt = 0.68 * dx / sqrt(g * 5030)
-    num_steps = 10
-    domain = RectangularDomain(nx, ny)
-    geometry = create_domain_par_geometry(rank, size, domain)
-    b = create_padded_b(geometry, jnp.float64)
-    rng = np.random.default_rng(12345)
-
-    ### Functions
-
-    def primalArg():
-        return State(create_local_field_zeros(geometry, jnp.float64),
-                     create_local_field_zeros(geometry, jnp.float64),
-                     create_local_field_ones(geometry, jnp.float64),)
-
-    def tangentArg():
-        return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
-    
-    def cotangentArg():
-        return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                     create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
-    
-    def scale(a,x):
-        return State(a * x.u, a * x.v, a * x.h)
+def add(x,y):
+    return State(x.u + y.u, x.v + y.v, x.h + y.h)
         
-    def add(x,y):
-        return State(x.u + y.u, x.v + y.v, x.h + y.h)
-            
-    def dot(x,y):
-        dot_  = jnp.sum(x.u * y.u)
-        dot_ += jnp.sum(x.v * y.v)
-        dot_ += jnp.sum(x.h * y.h)
-        dot_, _ = mpi4jax.allreduce(dot_, op=MPI.SUM, comm=mpi4jax_comm)
-        return dot_.item()
-    
-    def norm(x):
-        return jnp.sqrt(dot(x,x)).item()
+def dot(x,y):
+    dot_  = jnp.sum(x.u * y.u)
+    dot_ += jnp.sum(x.v * y.v)
+    dot_ += jnp.sum(x.h * y.h)
+    dot_, _ = mpi4jax.allreduce(dot_, op=MPI.SUM, comm=mpi4jax_comm)
+    return dot_.item()
 
-    def m(s):
-        s_padded, geometry_padded = pad_state(s, geometry)
+def norm(x):
+    return jnp.sqrt(dot(x,x)).item()
 
-        s_padded = advance_model_w_padding_n_steps(s_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+def m(s):
+    s_padded, geometry_padded = pad_state(s, geometry)
 
-        return unpad_state(s_padded, geometry_padded)
-    
-    def tlm(s, ds):
-        s_padded, geometry_padded = pad_state(s, geometry)
-        ds_padded, _ = pad_state(ds, geometry)
+    s_padded = advance_model_w_padding_n_steps(s_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
-        s_padded, ds_padded = advance_tlm_n_steps(s_padded, ds_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    return unpad_state(s_padded, geometry_padded)
 
-        s_new = unpad_state(s_padded, geometry_padded)
-        ds_new = unpad_state(ds_padded, geometry_padded)
+def tlm(s, ds):
+    s_padded, geometry_padded = pad_state(s, geometry)
+    ds_padded, _ = pad_state(ds, geometry)
 
-        return s_new, ds_new
-    
-    def adm(s, Ds):
-        s_padded, geometry_padded = pad_state(s, geometry)
-        Ds_padded, _ = pad_state(Ds, geometry)
+    s_padded, ds_padded = advance_tlm_n_steps(s_padded, ds_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
-        s_padded, Ds_padded = advance_adm_n_steps(s_padded, Ds_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = unpad_state(s_padded, geometry_padded)
+    ds_new = unpad_state(ds_padded, geometry_padded)
 
-        s_new = unpad_state(s_padded, geometry_padded)
-        Ds_new = unpad_state(Ds_padded, geometry_padded)
+    return s_new, ds_new
 
-        return s_new, Ds_new
+def adm(s, Ds):
+    s_padded, geometry_padded = pad_state(s, geometry)
+    Ds_padded, _ = pad_state(Ds, geometry)
 
-    ### Tests
+    s_padded, Ds_padded = advance_adm_n_steps(s_padded, Ds_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
+    s_new = unpad_state(s_padded, geometry_padded)
+    Ds_new = unpad_state(Ds_padded, geometry_padded)
+
+    return s_new, Ds_new
+
+
+def test_tlm_linearity():
+    success, absolute_error = lc.testTLMLinearity(tlm, primalArg, tangentArg, scale, norm, 1.0e-15)
     if rank == 0:
-        print("Test TLM Linearity:")
-    success, absolute_error = lc.testTLMLinearity(tlm, primalArg, tangentArg, scale, norm, 1.0e-13)
-    if rank == 0:
-        print("success = ", success, ", absolute_error = ", absolute_error)
+        print(f"Test TLM Linearity: success ={success}, absolute error={absolute_error}")
+    assert success
 
-    if rank == 0:
-        print("Test TLM Approximation:")
+def test_tlm_approx():
     success, relative_error = lc.testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, 1.0e-13)
     if rank == 0:
-        print("success = ", success, ", relative error = ", relative_error)
+        print(f"Test TLM Approx: success ={success}, relative error={relative_error}")
+    assert success
 
+def test_spectral_theorem():
+    success, absolute_error = lc.testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-15)
     if rank == 0:
-        print("Test ADM Approximation:")
-    success, relative_error = lc.testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-13)
-    if rank == 0:
-        print("success = ", success, ", relative error = ", relative_error)
+        print(f"Test Spectral Theorem (\"Dot Product Test\"): success ={success}, absolute error={absolute_error}")
+    assert success
