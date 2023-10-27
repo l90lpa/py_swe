@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 from jax import jit
 import jax.numpy as jnp
-import mpi4jax
+import mpi4jax_wrapper
 # Abusing mpi4jax by exposing unpack_hashable, to unpack HashableMPIType which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import unpack_hashable
 
@@ -57,12 +57,12 @@ def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token):
         if send_id == -1 and recv_id == -1:
             continue
         elif send_id == -1:
-            recv_buf, token = mpi4jax.recv(recv_buf, token, recv_id, comm=comm)
+            recv_buf, token = mpi4jax_wrapper.recv(recv_buf, token, recv_id, comm=comm)
             new_field = new_field.at[halo_slices[recv_name]].set(recv_buf)
         elif recv_id == -1:
-            token = mpi4jax.send(send_buf, token, send_id, comm=comm)
+            token = mpi4jax_wrapper.send(send_buf, token, send_id, comm=comm)
         else:
-            recv_buf, token = mpi4jax.sendrecv(send_buf, recv_buf, token, recv_id, send_id, comm=comm)
+            recv_buf, token = mpi4jax_wrapper.sendrecv(send_buf, recv_buf, token, recv_id, send_id, comm=comm)
             new_field = new_field.at[halo_slices[recv_name]].set(recv_buf)
         
     return new_field, token
