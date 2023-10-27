@@ -109,7 +109,7 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
     return jnp.sqrt(g * global_max_h), token
 
 @partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
-def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
+def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
 
 
     # def max_wavespeed_warning(h, dt, dx, dy):
@@ -138,6 +138,50 @@ def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token
     token = fc[2]
 
     return s, token
+
+
+def pad_state(s, geometry):
+    from .geometry import add_ghost_geometry, add_halo_geometry
+    from .state import create_local_field_zeros
+    
+    padded_geometry = add_halo_geometry(geometry, 1)
+    padded_geometry = add_ghost_geometry(padded_geometry, 1)
+
+    zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
+
+    u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
+    v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
+    h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
+    
+    padded_s = State(u, v, h)
+
+    return padded_s, padded_geometry
+
+
+def unpad_state(padded_s, padded_geometry):
+    return State(padded_s.u[at_local_domain(padded_geometry)],
+                 padded_s.v[at_local_domain(padded_geometry)],
+                 padded_s.h[at_local_domain(padded_geometry)])
+
+
+@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
+def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
+
+    s, padded_geometry = pad_state(s, geometry)
+    s = apply_boundary_conditions(s, s, geometry)
+
+    s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
+
+    s = unpad_state(s, padded_geometry)
+
+    return s, token
+
+
+# This is a convience wrapper
+def advance_model_w_padding_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
+    token = jnp.empty((1,))
+    s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
+    return s
 
 
 # This is a convience wrapper

@@ -2,13 +2,13 @@
 from jax import jvp, jit
 import jax.numpy as jnp
 
-from .model import shallow_water_model
+from .model import shallow_water_model_w_padding
 
 
 def shallow_water_model_tlm(s, ds, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
 
     def sw_model(s, token):
-        return shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
+        return shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
     
     @jit
     def sw_model_jvp_jit(x, token, dx, dtoken):

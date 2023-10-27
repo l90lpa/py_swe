@@ -13,7 +13,7 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 import mpi4jax
 
-from shallow_water.model import advance_model_n_steps
+from shallow_water.model import advance_model_w_padding_n_steps, pad_state, unpad_state
 from shallow_water.geometry import RectangularDomain, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
 from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_random, create_local_field_tsunami_height, create_local_field_ones
 from shallow_water.tlm import advance_tlm_n_steps
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     ### Parameters
     
     xmax = ymax = 100000
-    nx = ny = 11
+    nx = ny = 101
     dx = dy = xmax / (nx - 1.0)
     g = 9.81
     dt = 0.68 * dx / sqrt(g * 5030)
@@ -81,69 +81,33 @@ if __name__ == "__main__":
         return jnp.sqrt(dot(x,x)).item()
 
     def m(s):
-        padded_geometry = add_halo_geometry(geometry, 1)
-        padded_geometry = add_ghost_geometry(padded_geometry, 1)
+        s_padded, geometry_padded = pad_state(s, geometry)
 
-        zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
+        s_padded = advance_model_w_padding_n_steps(s_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
-        u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
-        v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
-        h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
-        padded_state = State(u, v, h)
-
-        padded_state_new = advance_model_n_steps(padded_state, padded_geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
-
-        return State(padded_state_new.u[at_local_domain(padded_geometry)],
-                     padded_state_new.v[at_local_domain(padded_geometry)],
-                     padded_state_new.h[at_local_domain(padded_geometry)])
+        return unpad_state(s_padded, geometry_padded)
     
     def tlm(s, ds):
-        padded_geometry = add_halo_geometry(geometry, 1)
-        padded_geometry = add_ghost_geometry(padded_geometry, 1)
+        s_padded, geometry_padded = pad_state(s, geometry)
+        ds_padded, _ = pad_state(ds, geometry)
 
-        zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
+        s_padded, ds_padded = advance_tlm_n_steps(s_padded, ds_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
-        u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
-        v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
-        h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
-        padded_state = State(u, v, h)
+        s_new = unpad_state(s_padded, geometry_padded)
+        ds_new = unpad_state(ds_padded, geometry_padded)
 
-        du = zeros_field.at[at_local_domain(padded_geometry)].set(ds.u)
-        dv = zeros_field.at[at_local_domain(padded_geometry)].set(ds.v)
-        dh = zeros_field.at[at_local_domain(padded_geometry)].set(ds.h)
-        padded_dstate = State(du, dv, dh)
-
-        padded_state_new, padded_dstate_new = advance_tlm_n_steps(padded_state, padded_dstate, padded_geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
-
-        return State(padded_state_new.u[at_local_domain(padded_geometry)],
-                     padded_state_new.v[at_local_domain(padded_geometry)],
-                     padded_state_new.h[at_local_domain(padded_geometry)]), State(padded_dstate_new.u[at_local_domain(padded_geometry)],
-                     padded_dstate_new.v[at_local_domain(padded_geometry)],
-                     padded_dstate_new.h[at_local_domain(padded_geometry)])
+        return s_new, ds_new
     
     def adm(s, Ds):
-        padded_geometry = add_halo_geometry(geometry, 1)
-        padded_geometry = add_ghost_geometry(padded_geometry, 1)
+        s_padded, geometry_padded = pad_state(s, geometry)
+        Ds_padded, _ = pad_state(Ds, geometry)
 
-        zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
+        s_padded, Ds_padded = advance_adm_n_steps(s_padded, Ds_padded, geometry_padded, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
-        u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
-        v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
-        h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
-        padded_state = State(u, v, h)
+        s_new = unpad_state(s_padded, geometry_padded)
+        Ds_new = unpad_state(Ds_padded, geometry_padded)
 
-        Du = zeros_field.at[at_local_domain(padded_geometry)].set(Ds.u)
-        Dv = zeros_field.at[at_local_domain(padded_geometry)].set(Ds.v)
-        Dh = zeros_field.at[at_local_domain(padded_geometry)].set(Ds.h)
-        padded_dstate = State(Du, Dv, Dh)
-
-        padded_state_new, padded_dstate_new = advance_adm_n_steps(padded_state, padded_dstate, padded_geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
-
-        return State(padded_state_new.u[at_local_domain(padded_geometry)],
-                     padded_state_new.v[at_local_domain(padded_geometry)],
-                     padded_state_new.h[at_local_domain(padded_geometry)]), State(padded_dstate_new.u[at_local_domain(padded_geometry)],
-                     padded_dstate_new.v[at_local_domain(padded_geometry)],
-                     padded_dstate_new.h[at_local_domain(padded_geometry)])
+        return s_new, Ds_new
 
     ### Tests
 
@@ -161,6 +125,6 @@ if __name__ == "__main__":
 
     if rank == 0:
         print("Test ADM Approximation:")
-    success, relative_error = lc.testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, norm, 1.0e-13)
+    success, relative_error = lc.testADMApprox(tlm, adm, primalArg, tangentArg, cotangentArg, dot, 1.0e-13)
     if rank == 0:
         print("success = ", success, ", relative error = ", relative_error)

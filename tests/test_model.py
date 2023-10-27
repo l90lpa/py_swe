@@ -13,7 +13,7 @@ from mpi4jax._src.utils import HashableMPIType
 
 from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularDomain, at_locally_owned,at_local_domain
 from shallow_water.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
-from shallow_water.model import advance_model_n_steps
+from shallow_water.model import advance_model_w_padding_n_steps
 
 def create_par_geometry(rank, size, domain):
     domain = RectangularDomain(domain.nx - 2, domain.ny - 2)
@@ -48,7 +48,7 @@ def test_model_1():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = advance_model_w_padding_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
     u_local = np.array(s_new.u[at_locally_owned(geometry)])
     v_local = np.array(s_new.v[at_locally_owned(geometry)])
@@ -83,7 +83,7 @@ def test_model_2():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = advance_model_w_padding_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
     u_local = np.array(s_new.u[at_locally_owned(geometry)])
     v_local = np.array(s_new.v[at_locally_owned(geometry)])
@@ -120,7 +120,7 @@ def test_model_3():
 
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = advance_model_w_padding_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
