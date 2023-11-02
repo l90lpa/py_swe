@@ -65,6 +65,9 @@ def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4p
 
     assert locally_owned_field.ndim == 2
 
+    if nxprocs * nyprocs == 1:
+        return locally_owned_field
+
     # Collect local array shapes
     sendshapes = np.array(mpi4py_comm.gather(np.shape(locally_owned_field), root))
 
