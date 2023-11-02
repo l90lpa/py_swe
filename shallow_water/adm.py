@@ -5,11 +5,12 @@ from jax import vjp, jit
 import jax.numpy as jnp
 
 from .model import shallow_water_model_w_padding
+from .scan_functions import jax_scan_checkpointed
 
 @partial(jit, static_argnames=["geometry", "n_steps", "comm_wrapped"])
 def shallow_water_model_adm_w_padding(s, token, Ds, Dtoken, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     def sw_model(s, token):
-        return shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
+        return shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, jax_scan_checkpointed)
     primals, sw_model_vjp = vjp(sw_model, s, token)
     cotangents = sw_model_vjp((Ds, Dtoken))
     return primals, cotangents

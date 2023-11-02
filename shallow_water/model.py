@@ -9,6 +9,7 @@ from .exchange_halos import exchange_state_halos
 from .geometry import ParGeometry, get_locally_owned_range, at_local_domain
 from .state import State
 from .ode_integrate import integrate, forward_euler_solver_step
+from .scan_functions import jax_scan
 
 
 @partial(jit, static_argnames=['geometry'])
@@ -108,8 +109,8 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     return jnp.sqrt(g * global_max_h), token
 
-@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
-def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
+@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped', 'scan_function'])
+def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function=jax_scan):
 
 
     # def max_wavespeed_warning(h, dt, dx, dy):
@@ -132,7 +133,7 @@ def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx,
 
     ic = (s_new, s, token)
 
-    fc = integrate(shallow_water_dynamics_, ic, dt, n_steps, forward_euler_solver_step_)
+    fc = integrate(shallow_water_dynamics_, ic, dt, n_steps, forward_euler_solver_step_, scan_function=scan_function)
     
     s = fc[1]
     token = fc[2]
@@ -175,15 +176,15 @@ def unpad_state(s_padded, geometry_padded):
                  unpad_field(s_padded.h, geometry_padded))
 
 
-@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
-def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
+@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped', 'scan_function'])
+def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function=jax_scan):
 
     s, geometry_padded = pad_state(s, geometry)
     b, geometry_padded = pad_field(b, geometry)
 
     s = apply_boundary_conditions(s, s, geometry)
 
-    s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
+    s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function)
 
     s = unpad_state(s, geometry_padded)
 
