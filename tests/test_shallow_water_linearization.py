@@ -16,8 +16,8 @@ import mpi4jax
 from shallow_water.model import advance_model_w_padding_n_steps, pad_state, unpad_state
 from shallow_water.geometry import RectangularDomain, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
 from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_random, create_local_field_tsunami_height, create_local_field_ones
-from shallow_water.tlm import advance_tlm_n_steps
-from shallow_water.adm import advance_adm_n_steps
+from shallow_water.tlm import advance_tlm_w_padding_n_steps
+from shallow_water.adm import advance_adm_w_padding_n_steps
 
 import validation.linearization_checks as lc
 
@@ -91,7 +91,7 @@ def tlm(s, ds):
     s_padded, geometry_padded = pad_state(s, geometry)
     ds_padded, _ = pad_state(ds, geometry)
 
-    s_padded, ds_padded = advance_tlm_n_steps(s_padded, ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
+    s_padded, ds_padded = advance_tlm_w_padding_n_steps(s_padded, ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
 
     s_new = unpad_state(s_padded, geometry_padded)
     ds_new = unpad_state(ds_padded, geometry_padded)
@@ -102,7 +102,7 @@ def adm(s, Ds):
     s_padded, geometry_padded = pad_state(s, geometry)
     Ds_padded, _ = pad_state(Ds, geometry)
 
-    s_padded, Ds_padded = advance_adm_n_steps(s_padded, Ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
+    s_padded, Ds_padded = advance_adm_w_padding_n_steps(s_padded, Ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
 
     s_new = unpad_state(s_padded, geometry_padded)
     Ds_new = unpad_state(Ds_padded, geometry_padded)
