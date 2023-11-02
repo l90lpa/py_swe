@@ -140,39 +140,52 @@ def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx,
     return s, token
 
 
-def pad_state(s, geometry):
+def pad_field(f, geometry):
     from .geometry import add_ghost_geometry, add_halo_geometry
     from .state import create_local_field_zeros
     
-    padded_geometry = add_halo_geometry(geometry, 1)
-    padded_geometry = add_ghost_geometry(padded_geometry, 1)
+    geometry_padded = add_halo_geometry(geometry, 1)
+    geometry_padded = add_ghost_geometry(geometry_padded, 1)
 
-    zeros_field = create_local_field_zeros(padded_geometry, jnp.float64)
+    zeros_field = create_local_field_zeros(geometry_padded, jnp.float64)
 
-    u = zeros_field.at[at_local_domain(padded_geometry)].set(s.u)
-    v = zeros_field.at[at_local_domain(padded_geometry)].set(s.v)
-    h = zeros_field.at[at_local_domain(padded_geometry)].set(s.h)
+    f_padded = zeros_field.at[at_local_domain(geometry_padded)].set(f)
     
-    padded_s = State(u, v, h)
-
-    return padded_s, padded_geometry
+    return f_padded, geometry_padded
 
 
-def unpad_state(padded_s, padded_geometry):
-    return State(padded_s.u[at_local_domain(padded_geometry)],
-                 padded_s.v[at_local_domain(padded_geometry)],
-                 padded_s.h[at_local_domain(padded_geometry)])
+def pad_state(s, geometry):
+    
+    u, geometry_padded = pad_field(s.u, geometry)
+    v, geometry_padded = pad_field(s.v, geometry)
+    h, geometry_padded = pad_field(s.h, geometry)
+    
+    s_padded = State(u, v, h)
+
+    return s_padded, geometry_padded
+
+
+def unpad_field(f_padded, geometry_padded):
+    return f_padded[at_local_domain(geometry_padded)]
+
+
+def unpad_state(s_padded, geometry_padded):
+    return State(unpad_field(s_padded.u, geometry_padded),
+                 unpad_field(s_padded.v, geometry_padded),
+                 unpad_field(s_padded.h, geometry_padded))
 
 
 @partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
 def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token):
 
-    s, padded_geometry = pad_state(s, geometry)
+    s, geometry_padded = pad_state(s, geometry)
+    b, geometry_padded = pad_field(b, geometry)
+
     s = apply_boundary_conditions(s, s, geometry)
 
     s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
 
-    s = unpad_state(s, padded_geometry)
+    s = unpad_state(s, geometry_padded)
 
     return s, token
 
