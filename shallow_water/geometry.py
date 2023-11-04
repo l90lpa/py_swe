@@ -5,7 +5,7 @@ from itertools import product, accumulate
 import numpy as np
 
 @dataclass
-class RectangularDomain:
+class RectangularGrid:
     nx: int
     ny: int
 
@@ -18,10 +18,26 @@ class RectangularSubdomain:
     local_nx: int
     local_ny: int
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class Vec2:
-    x: int
-    y: int
+    x: [int|float]
+    y: [int|float]
+
+    def __add__(self, vec):
+        assert isinstance(vec, type(self))
+        return Vec2(self.x + vec.x, self.y + vec.y)
+    
+    def __sub__(self, vec):
+        assert isinstance(vec, type(self))
+        return Vec2(self.x - vec.x, self.y - vec.y)
+    
+    def __mul__(self, scalar):
+        assert isinstance(scalar, int) or isinstance(scalar, float)
+        return Vec2(scalar * self.x, scalar * self.y)
+    
+    def __rmul__(self, scalar):
+        assert isinstance(scalar, int) or isinstance(scalar, float)
+        return Vec2(scalar * self.x, scalar * self.y)
 
 @dataclass(eq=True, frozen=True)
 class ProcessGridInfo:
@@ -53,23 +69,42 @@ class GhostDepth:
     west: int
 
 @dataclass(eq=True, frozen=True)
-class ParGeometry:
-    pg_info: ProcessGridInfo
-    pg_local_topology: ProcessGridLocalTopology
-    halo_depth: HaloDepth
-    local_domain_extent_x: int # the x-extent of local domain
-    local_domain_extent_y: int # the y-extent of local domain
-    ghost_depth: GhostDepth
-    local_domain_origin_x: int # the global x-coord of the local domain origin
-    local_domain_origin_y: int # the global y-coord of the local domain origin
+class ProcessGridGlobalInfo:
+    size:      int    # Total number of MPI ranks (convience member, size == nxprocs * nyprocs)
+    nxprocs:   int    # Size of the processor grid in the x direction
+    nyprocs:   int    # Size of the processor grid in the y direction
 
+@dataclass(eq=True, frozen=True)
+class ProcessGridLocalInfo:
+    rank:      int    # MPI ranks of this process
+    topology:  ProcessGridLocalTopology # Local process grid topology
+
+@dataclass(eq=True, frozen=True)
+class DomainGlobalInfo:
+    origin: Vec2 # The position of the global domain origin in real space
+    extent: Vec2 # The extent of the global domain in real space
+
+@dataclass(eq=True, frozen=True)
+class DomainLocalInfo:
+    grid_origin: Vec2 # The position of the local domain origin in grid space
+    grid_extent: Vec2 # The extent of the local domain in grid space
+    halo_depth:  HaloDepth
+    ghost_depth: GhostDepth
+
+@dataclass(eq=True, frozen=True)
+class ParGeometry:
+    global_pg: ProcessGridGlobalInfo
+    local_pg: ProcessGridLocalInfo
+    global_domain: DomainGlobalInfo
+    local_domain: DomainLocalInfo
 
 def get_locally_owned_range(geometry: ParGeometry):
-
-    start_x = geometry.halo_depth.west
-    start_y = geometry.halo_depth.south
-    end_x = (start_x + geometry.ghost_depth.west + geometry.local_domain_extent_x + geometry.ghost_depth.east)
-    end_y = (start_y + geometry.ghost_depth.south + geometry.local_domain_extent_y + geometry.ghost_depth.north)
+    
+    domain = geometry.local_domain
+    start_x = domain.halo_depth.west
+    start_y = domain.halo_depth.south
+    end_x = (start_x + domain.ghost_depth.west + domain.grid_extent.x + domain.ghost_depth.east)
+    end_y = (start_y + domain.ghost_depth.south + domain.grid_extent.y + domain.ghost_depth.north)
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
 
@@ -81,10 +116,11 @@ def at_locally_owned(geometry: ParGeometry):
 
 def get_local_domain_range(geometry: ParGeometry):
 
-    start_x = geometry.ghost_depth.west + geometry.halo_depth.west
-    start_y = geometry.ghost_depth.south + geometry.halo_depth.south
-    end_x   = start_x + geometry.local_domain_extent_x
-    end_y   = start_y + geometry.local_domain_extent_y
+    domain = geometry.local_domain
+    start_x = domain.ghost_depth.west + domain.halo_depth.west
+    start_y = domain.ghost_depth.south + domain.halo_depth.south
+    end_x   = start_x + domain.grid_extent.x
+    end_y   = start_y + domain.grid_extent.y
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
 
@@ -96,16 +132,18 @@ def at_local_domain(geometry: ParGeometry):
 
 def get_locally_active_range(geometry: ParGeometry):
 
+    domain = geometry.local_domain
+
     start_x = 0
     start_y = 0
     
-    end_x = (geometry.halo_depth.west + geometry.ghost_depth.west + 
-             geometry.local_domain_extent_x + 
-             geometry.halo_depth.east + geometry.ghost_depth.east)
+    end_x = (domain.halo_depth.west + domain.ghost_depth.west + 
+             domain.grid_extent.x + 
+             domain.halo_depth.east + domain.ghost_depth.east)
     
-    end_y = (geometry.halo_depth.south + geometry.ghost_depth.south + 
-             geometry.local_domain_extent_y + 
-             geometry.halo_depth.north + geometry.ghost_depth.north)
+    end_y = (domain.halo_depth.south + domain.ghost_depth.south + 
+             domain.grid_extent.y + 
+             domain.halo_depth.north + domain.ghost_depth.north)
 
     return Vec2(start_x, start_y), Vec2(end_x, end_y)
 
@@ -143,15 +181,15 @@ def split(x, n):
 def prefix_sum(lst):
     return list(accumulate(lst))
 
-def partition_rectangular_domain(domain: RectangularDomain, num_subdomains):
-    ratio = domain.nx / domain.ny
+def partition_rectangular_grid(grid: RectangularGrid, num_subgrids):
+    ratio = grid.nx / grid.ny
 
     if ratio > 1:
         xy_ordered_pair = lambda smaller, larger: (larger, smaller)
     else:
         xy_ordered_pair = lambda smaller, larger: (smaller, larger)
 
-    xy_factor_pairs = [xy_ordered_pair(i, num_subdomains // i) for i in range(1, floor(sqrt(num_subdomains))+1) if num_subdomains % i == 0]
+    xy_factor_pairs = [xy_ordered_pair(i, num_subgrids // i) for i in range(1, floor(sqrt(num_subgrids))+1) if num_subgrids % i == 0]
 
     ratios = [a/b for a,b in xy_factor_pairs]
 
@@ -160,25 +198,26 @@ def partition_rectangular_domain(domain: RectangularDomain, num_subdomains):
 
     nxprocs, nyprocs = xy_factor_pairs[idx]
 
-    local_nx = split(domain.nx, nxprocs)
+    local_nx = split(grid.nx, nxprocs)
     start_x = prefix_sum([0, *local_nx[:-1]])
-    local_ny = split(domain.ny, nyprocs)
+    local_ny = split(grid.ny, nyprocs)
     start_y = prefix_sum([0, *local_ny[:-1]])
-    subdomain_extents = product(zip(start_y, local_ny), zip(start_x, local_nx))
-    create_subdomain = lambda extents: RectangularSubdomain(nxprocs, nyprocs, extents[1][0], extents[0][0], extents[1][1], extents[0][1])
-    subdomains = list(map(create_subdomain, subdomain_extents))
-    Partition = namedtuple("Partition", "subdomains nxprocs nyprocs")
-    return Partition(subdomains, nxprocs, nyprocs)
+    subgrid_extents = product(zip(start_y, local_ny), zip(start_x, local_nx))
+    create_subgrid = lambda extents: RectangularSubdomain(nxprocs, nyprocs, extents[1][0], extents[0][0], extents[1][1], extents[0][1])
+    subgrid = list(map(create_subgrid, subgrid_extents))
+    Partition = namedtuple("Partition", "subgrids nxprocs nyprocs")
+    return Partition(subgrid, nxprocs, nyprocs)
 
-def create_domain_par_geometry(rank, size, domain: RectangularDomain):
+def create_domain_par_geometry(rank, size, grid: RectangularGrid, global_origin: Vec2=Vec2(0.0,0.0), global_extent: Vec2=Vec2(1.0,1.0)):
 
-    subdomains, nxprocs, nyprocs = partition_rectangular_domain(domain, size)
+    subgrids, nxprocs, nyprocs = partition_rectangular_grid(grid, size)
+    assert size == nxprocs * nyprocs
 
-    local_subdomain = subdomains[rank]
+    local_subgrid = subgrids[rank]
 
-    pg_info = ProcessGridInfo(rank, nxprocs, nyprocs)
+    pg_global_info = ProcessGridGlobalInfo(size, nxprocs, nyprocs)
 
-    bounds = Vec2(pg_info.nxprocs, pg_info.nyprocs)
+    bounds = Vec2(pg_global_info.nxprocs, pg_global_info.nyprocs)
     coord = index_to_coord_xy_order(bounds, rank)
 
     if coord.y != (nyprocs - 1):
@@ -201,42 +240,44 @@ def create_domain_par_geometry(rank, size, domain: RectangularDomain):
     else:
         west = -1
 
-    neighbor_topology = [north, south, east, west]
+    pg_local_topology = ProcessGridLocalTopology(*[north, south, east, west])
 
-    geometry = ParGeometry(pg_info,
-                           ProcessGridLocalTopology(*neighbor_topology),
-                           HaloDepth(0,0,0,0),
-                           local_subdomain.local_nx,
-                           local_subdomain.local_ny,
-                           GhostDepth(0,0,0,0),
-                           local_subdomain.start_x,
-                           local_subdomain.start_y)
+    pg_local_info = ProcessGridLocalInfo(rank, pg_local_topology)
+
+    geometry = ParGeometry(
+        pg_global_info,
+        pg_local_info,
+        DomainGlobalInfo(global_origin,
+                         global_extent),
+        DomainLocalInfo(Vec2(local_subgrid.start_x, local_subgrid.start_y),
+                        Vec2(local_subgrid.local_nx, local_subgrid.local_ny),
+                        HaloDepth(0,0,0,0),
+                        GhostDepth(0,0,0,0))
+        )
 
     return geometry
 
 def add_ghost_geometry(geometry: ParGeometry, depth):
     
-    ghost_depth = list(map(lambda neighbor_id: 1 if neighbor_id == -1 else 0, geometry.pg_local_topology))
+    ghost_depth = GhostDepth(*map(lambda neighbor_id: depth if neighbor_id == -1 else 0, geometry.local_pg.topology))
 
-    return ParGeometry(geometry.pg_info,
-                       geometry.pg_local_topology,
-                       geometry.halo_depth,
-                       geometry.local_domain_extent_x,
-                       geometry.local_domain_extent_y,
-                       GhostDepth(*ghost_depth),
-                       geometry.local_domain_origin_x,
-                       geometry.local_domain_origin_y)
+    return ParGeometry(geometry.global_pg,
+                       geometry.local_pg,
+                       geometry.global_domain,
+                       DomainLocalInfo(geometry.local_domain.grid_origin,
+                                       geometry.local_domain.grid_extent,
+                                       geometry.local_domain.halo_depth,
+                                       ghost_depth))
 
 def add_halo_geometry(geometry: ParGeometry, depth):
     
-    halo_depth = list(map(lambda neighbor_id: 1 if neighbor_id != -1 else 0, geometry.pg_local_topology))
+    halo_depth = HaloDepth(*map(lambda neighbor_id: depth if neighbor_id != -1 else 0, geometry.local_pg.topology))
 
-    return ParGeometry(geometry.pg_info,
-                       geometry.pg_local_topology,
-                       HaloDepth(*halo_depth),
-                       geometry.local_domain_extent_x,
-                       geometry.local_domain_extent_y,
-                       geometry.ghost_depth,
-                       geometry.local_domain_origin_x,
-                       geometry.local_domain_origin_y)
+    return ParGeometry(geometry.global_pg,
+                       geometry.local_pg,
+                       geometry.global_domain,
+                       DomainLocalInfo(geometry.local_domain.grid_origin,
+                                       geometry.local_domain.grid_extent,
+                                       halo_depth,
+                                       geometry.local_domain.ghost_depth))
 

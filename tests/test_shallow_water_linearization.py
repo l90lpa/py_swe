@@ -14,7 +14,7 @@ from mpi4jax._src.utils import HashableMPIType
 import mpi4jax
 
 from shallow_water.model import advance_model_w_padding_n_steps, pad_state, unpad_state
-from shallow_water.geometry import RectangularDomain, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
+from shallow_water.geometry import Vec2, RectangularGrid, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry, at_local_domain
 from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_random, create_local_field_tsunami_height, create_local_field_ones
 from shallow_water.tlm import advance_tlm_w_padding_n_steps
 from shallow_water.adm import advance_adm_w_padding_n_steps
@@ -36,14 +36,15 @@ def create_padded_b(geometry, dtype):
 
 ### Parameters
 
-xmax = ymax = 100000
+origin = Vec2(0.0, 0.0)
+extent = Vec2(100000.0, 100000.0)
 nx = ny = 101
-dx = dy = xmax / (nx - 1.0)
+dx = dy = extent.x / (nx - 1.0)
 g = 9.81
 dt = 0.68 * dx / sqrt(g * 5030)
 num_steps = 10
-domain = RectangularDomain(nx, ny)
-geometry = create_domain_par_geometry(rank, size, domain)
+grid = RectangularGrid(nx, ny)
+geometry = create_domain_par_geometry(rank, size, grid, origin, extent)
 b = create_padded_b(geometry, jnp.float64)
 rng = np.random.default_rng(12345)
 

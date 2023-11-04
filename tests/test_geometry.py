@@ -1,6 +1,6 @@
 import pytest
 
-from shallow_water.geometry import RectangularDomain, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_domain, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry
+from shallow_water.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry
 
 def test_process_coord_index_conversion():
 
@@ -43,74 +43,74 @@ def test_process_coord_index_conversion_2():
     assert proc_index == 4
 
 def test_partition_rectangular_domain():
-    domain = RectangularDomain(17,17)
+    domain = RectangularGrid(17,17)
     num_subdomains = 4
 
-    subdomains = partition_rectangular_domain(domain, num_subdomains).subdomains
+    subgrids = partition_rectangular_grid(domain, num_subdomains).subgrids
 
-    assert len(subdomains) == 4
+    assert len(subgrids) == 4
 
-    assert subdomains[0].start_x == 0 and subdomains[0].start_y == 0
-    assert subdomains[1].start_x > 0 and subdomains[1].start_y == 0 
-    assert subdomains[2].start_x == 0 and subdomains[2].start_y > 0
-    assert subdomains[3].start_x > 0 and subdomains[3].start_y > 0
+    assert subgrids[0].start_x == 0 and subgrids[0].start_y == 0
+    assert subgrids[1].start_x > 0 and subgrids[1].start_y == 0 
+    assert subgrids[2].start_x == 0 and subgrids[2].start_y > 0
+    assert subgrids[3].start_x > 0 and subgrids[3].start_y > 0
 
-    assert subdomains[3].start_x == subdomains[0].local_nx and subdomains[3].start_y == subdomains[0].local_ny
+    assert subgrids[3].start_x == subgrids[0].local_nx and subgrids[3].start_y == subgrids[0].local_ny
 
 def test_create_par_geometry():
     
     rank = 3
     size = 4
-    domain = RectangularDomain(17,17)
+    grid = RectangularGrid(17,17)
 
-    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
     geometry = add_ghost_geometry(geometry, 1)
 
-    assert geometry.pg_info.nxprocs == 2 and geometry.pg_info.nyprocs == 2
+    assert geometry.global_pg.nxprocs == 2 and geometry.global_pg.nyprocs == 2
 
-    assert geometry.local_domain_extent_x == 9 and geometry.local_domain_extent_y == 9
+    assert geometry.local_domain.grid_extent.x == 9 and geometry.local_domain.grid_extent.y == 9
 
-    assert geometry.halo_depth.north == 0
-    assert geometry.halo_depth.south == 1
-    assert geometry.halo_depth.east == 0
-    assert geometry.halo_depth.west == 1
+    assert geometry.local_domain.halo_depth.north == 0
+    assert geometry.local_domain.halo_depth.south == 1
+    assert geometry.local_domain.halo_depth.east == 0
+    assert geometry.local_domain.halo_depth.west == 1
 
-    assert geometry.ghost_depth.north == 1
-    assert geometry.ghost_depth.south == 0
-    assert geometry.ghost_depth.east == 1
-    assert geometry.ghost_depth.west == 0
+    assert geometry.local_domain.ghost_depth.north == 1
+    assert geometry.local_domain.ghost_depth.south == 0
+    assert geometry.local_domain.ghost_depth.east == 1
+    assert geometry.local_domain.ghost_depth.west == 0
 
-    assert geometry.pg_local_topology.north == -1
-    assert geometry.pg_local_topology.south == 1
-    assert geometry.pg_local_topology.east == -1
-    assert geometry.pg_local_topology.west == 2
+    assert geometry.local_pg.topology.north == -1
+    assert geometry.local_pg.topology.south == 1
+    assert geometry.local_pg.topology.east == -1
+    assert geometry.local_pg.topology.west == 2
 
 def test_create_par_geometry_2():
     
     rank = 4
     size = 9
-    domain = RectangularDomain(3,3)
+    grid = RectangularGrid(3,3)
 
-    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
     geometry = add_ghost_geometry(geometry, 1)
 
-    assert geometry.pg_info.nxprocs == 3 and geometry.pg_info.nyprocs == 3
+    assert geometry.global_pg.nxprocs == 3 and geometry.global_pg.nyprocs == 3
 
-    assert geometry.local_domain_extent_x == 1 and geometry.local_domain_extent_y == 1
+    assert geometry.local_domain.grid_extent.x == 1 and geometry.local_domain.grid_extent.y == 1
 
-    assert geometry.halo_depth.north == 1
-    assert geometry.halo_depth.south == 1
-    assert geometry.halo_depth.east == 1
-    assert geometry.halo_depth.west == 1
+    assert geometry.local_domain.halo_depth.north == 1
+    assert geometry.local_domain.halo_depth.south == 1
+    assert geometry.local_domain.halo_depth.east == 1
+    assert geometry.local_domain.halo_depth.west == 1
 
-    assert geometry.ghost_depth.north == 0
-    assert geometry.ghost_depth.south == 0
-    assert geometry.ghost_depth.east == 0
-    assert geometry.ghost_depth.west == 0
+    assert geometry.local_domain.ghost_depth.north == 0
+    assert geometry.local_domain.ghost_depth.south == 0
+    assert geometry.local_domain.ghost_depth.east == 0
+    assert geometry.local_domain.ghost_depth.west == 0
 
-    assert geometry.pg_local_topology.north == 7
-    assert geometry.pg_local_topology.south == 1
-    assert geometry.pg_local_topology.east == 5
-    assert geometry.pg_local_topology.west == 3
+    assert geometry.local_pg.topology.north == 7
+    assert geometry.local_pg.topology.south == 1
+    assert geometry.local_pg.topology.east == 5
+    assert geometry.local_pg.topology.west == 3

@@ -11,13 +11,13 @@ from mpi4py import MPI
 # Abusing mpi4jax by exposing HashableMPIType, which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import HashableMPIType
 
-from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularDomain, at_locally_owned,at_local_domain
+from shallow_water.geometry import Vec2, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned,at_local_domain
 from shallow_water.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
 from shallow_water.model import advance_model_w_padding_n_steps
 
-def create_par_geometry(rank, size, domain):
-    domain = RectangularDomain(domain.nx - 2, domain.ny - 2)
-    geometry = create_domain_par_geometry(rank, size, domain)
+def create_par_geometry(rank, size, grid, extent):
+    grid = RectangularGrid(grid.nx - 2, grid.ny - 2)
+    geometry = create_domain_par_geometry(rank, size, grid, Vec2(0.0,0.0), extent)
     geometry = add_ghost_geometry(geometry, 1)
     geometry = add_halo_geometry(geometry, 1)
     return geometry
@@ -38,8 +38,8 @@ def test_model_1():
     dt = 0.68 * dx / sqrt(g * 5030.0)
     num_steps = 1
 
-    domain = RectangularDomain(nx, ny)
-    geometry = create_par_geometry(rank, size, domain)
+    grid = RectangularGrid(nx, ny)
+    geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
 
     u = jnp.copy(zero_field)
@@ -54,9 +54,9 @@ def test_model_1():
     v_local = np.array(s_new.v[at_locally_owned(geometry)])
     h_local = np.array(s_new.h[at_locally_owned(geometry)])
     
-    u_global = gather_global_field(u_local, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
-    v_global = gather_global_field(v_local, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
-    h_global = gather_global_field(h_local, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
+    u_global = gather_global_field(u_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    v_global = gather_global_field(v_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    h_global = gather_global_field(h_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         assert np.all(np.equal(u_global, [0.0]))
@@ -72,8 +72,8 @@ def test_model_2():
     dt = 0.68 * dx / sqrt(g * 5030.0)
     num_steps = 1
 
-    domain = RectangularDomain(nx, ny)
-    geometry = create_par_geometry(rank, size, domain)
+    grid = RectangularGrid(nx, ny)
+    geometry = create_par_geometry(rank, size, grid, Vec2(100000.0, 100000.0))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
     
     u = jnp.copy(zero_field)
@@ -89,9 +89,9 @@ def test_model_2():
     v_local = np.array(s_new.v[at_locally_owned(geometry)])
     h_local = np.array(s_new.h[at_locally_owned(geometry)])
     
-    u_global = gather_global_field(u_local, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
-    v_global = gather_global_field(v_local, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
-    h_global = gather_global_field(h_local, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
+    u_global = gather_global_field(u_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    v_global = gather_global_field(v_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    h_global = gather_global_field(h_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         assert np.all(np.equal(u_global, [0.0]))
@@ -108,8 +108,8 @@ def test_model_3():
     dt = 0.68 * dx / sqrt(g * 5030.0)
     num_steps = 100
 
-    domain = RectangularDomain(nx, ny)
-    geometry = create_par_geometry(rank, size, domain)
+    grid = RectangularGrid(nx, ny)
+    geometry = create_par_geometry(rank, size, grid, Vec2(10000.0, 10000.0))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
 
     u = jnp.copy(zero_field)
@@ -126,9 +126,9 @@ def test_model_3():
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
     h_locally_owned = np.array(s_new.h[at_locally_owned(geometry)])
-    u_global = gather_global_field(u_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
-    v_global = gather_global_field(v_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
-    h_global = gather_global_field(h_locally_owned, geometry.pg_info.nxprocs, geometry.pg_info.nyprocs, root, rank, mpi4py_comm)
+    u_global = gather_global_field(u_locally_owned, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    v_global = gather_global_field(v_locally_owned, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    h_global = gather_global_field(h_locally_owned, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         rms_u = sqrt(np.sum(u_global ** 2) / (nx * ny))

@@ -51,7 +51,7 @@ def apply_model(s_new, s, geometry: ParGeometry, b, dt: float, dx: float, dy: fl
 
 
 @partial(jit, static_argnames=['geometry'])
-def apply_boundary_conditions(s_new, s, geometry):
+def apply_boundary_conditions(s_new, s, geometry: ParGeometry):
 
     (u_new, v_new, h_new) = s_new
     (u, v, h) = s
@@ -60,22 +60,22 @@ def apply_boundary_conditions(s_new, s, geometry):
     x_slice = slice(start.x, end.x)
     y_slice = slice(start.y, end.y)
 
-    if geometry.pg_local_topology.south == -1:
+    if geometry.local_pg.topology.south == -1:
         u_new = u_new.at[x_slice, start.y].set( u[x_slice, start.y + 1])
         v_new = v_new.at[x_slice, start.y].set(-v[x_slice, start.y + 1])
         h_new = h_new.at[x_slice, start.y].set( h[x_slice, start.y + 1])
 
-    if geometry.pg_local_topology.north == -1:
+    if geometry.local_pg.topology.north == -1:
         u_new = u_new.at[x_slice, end.y - 1].set( u[x_slice, end.y - 2])
         v_new = v_new.at[x_slice, end.y - 1].set(-v[x_slice, end.y - 2])
         h_new = h_new.at[x_slice, end.y - 1].set( h[x_slice, end.y - 2])
 
-    if geometry.pg_local_topology.west == -1:
+    if geometry.local_pg.topology.west == -1:
         u_new = u_new.at[start.x, y_slice].set(-u[start.x + 1, y_slice])
         v_new = v_new.at[start.x, y_slice].set( v[start.x + 1, y_slice])
         h_new = h_new.at[start.x, y_slice].set( h[start.x + 1, y_slice])
         
-    if geometry.pg_local_topology.east == -1:
+    if geometry.local_pg.topology.east == -1:
         u_new = u_new.at[end.x - 1, y_slice].set(-u[end.x - 2, y_slice])
         v_new = v_new.at[end.x - 1, y_slice].set( v[end.x - 2, y_slice])
         h_new = h_new.at[end.x - 1, y_slice].set( h[end.x - 2, y_slice])

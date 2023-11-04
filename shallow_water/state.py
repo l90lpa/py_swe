@@ -48,8 +48,8 @@ def create_local_field_tsunami_height(geometry: ParGeometry, xmax, dx, ymax, dy)
     sigma = floor(xmax / 20.0)
 
     # ! Create a state with a tsunami pulse in it to initialize field h
-    local_origin_x = geometry.local_domain_origin_x
-    local_origin_y = geometry.local_domain_origin_y
+    local_origin_x = geometry.local_domain.grid_origin.x
+    local_origin_y = geometry.local_domain.grid_origin.y
     x_slice, y_slice = at_locally_owned(geometry)
     for i in range(x_slice.start, x_slice.stop):
         for j in range(y_slice.start, y_slice.stop):

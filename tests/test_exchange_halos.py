@@ -8,7 +8,7 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 
 
-from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, RectangularDomain, at_locally_owned
+from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, RectangularGrid, at_locally_owned
 from shallow_water.state import create_local_field_zeros
 from shallow_water.exchange_halos import exchange_field_halos
 
@@ -20,18 +20,18 @@ def test_exchange_halos():
     assert size <= 4
 
     if size == 1:
-        domain = RectangularDomain(1,1)
+        grid = RectangularGrid(1,1)
     elif size == 2:
-        domain = RectangularDomain(2,1)
+        grid = RectangularGrid(2,1)
     elif size == 3:
-        domain = RectangularDomain(3,1)
+        grid = RectangularGrid(3,1)
     elif size == 4:
-        domain = RectangularDomain(2,2)
+        grid = RectangularGrid(2,2)
     else:
         assert False
 
 
-    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
     
     field = create_local_field_zeros(geometry, jnp.float32)
@@ -80,9 +80,9 @@ def test_exchange_halos():
 def test_exchange_halos_2():
     assert size <= 4
 
-    domain = RectangularDomain(1,4)
+    grid = RectangularGrid(1,4)
 
-    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
 
     field = create_local_field_zeros(geometry, jnp.float32)
@@ -133,18 +133,18 @@ def test_exchange_halos_jvp():
     assert size <= 4
 
     if size == 1:
-        domain = RectangularDomain(1,1)
+        grid = RectangularGrid(1,1)
     elif size == 2:
-        domain = RectangularDomain(2,1)
+        grid = RectangularGrid(2,1)
     elif size == 3:
-        domain = RectangularDomain(3,1)
+        grid = RectangularGrid(3,1)
     elif size == 4:
-        domain = RectangularDomain(2,2)
+        grid = RectangularGrid(2,2)
     else:
         assert False
 
 
-    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
 
     field = create_local_field_zeros(geometry, jnp.float32)
@@ -202,18 +202,18 @@ def test_exchange_halos_vjp():
     assert size <= 4
 
     if size == 1:
-        domain = RectangularDomain(1,1)
+        grid = RectangularGrid(1,1)
     elif size == 2:
-        domain = RectangularDomain(2,1)
+        grid = RectangularGrid(2,1)
     elif size == 3:
-        domain = RectangularDomain(3,1)
+        grid = RectangularGrid(3,1)
     elif size == 4:
-        domain = RectangularDomain(2,2)
+        grid = RectangularGrid(2,2)
     else:
         assert False
 
 
-    geometry = create_domain_par_geometry(rank, size, domain)
+    geometry = create_domain_par_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
 
     field = create_local_field_zeros(geometry, jnp.float32)

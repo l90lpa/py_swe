@@ -10,12 +10,12 @@ from .state import State
 
 def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token):
 
-    if geometry.pg_info.nxprocs * geometry.pg_info.nyprocs == 1:
+    if geometry.global_pg.nxprocs * geometry.global_pg.nyprocs == 1:
         return field, token
 
     comm = unpack_hashable(comm_wrapped)
-    local_topology = geometry.pg_local_topology
-    halo_depth = geometry.halo_depth
+    local_topology = geometry.local_pg.topology
+    halo_depth = geometry.local_domain.halo_depth
 
     start, end = get_locally_owned_range(geometry)
 
