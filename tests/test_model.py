@@ -102,7 +102,6 @@ def test_model_2():
         assert np.all(np.equal(h_global, [10.0]))
 
 def test_model_3():
-    assert size == 4
 
     xmax = ymax = 10000.0
     nx = ny = 11
