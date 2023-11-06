@@ -76,7 +76,7 @@ def test_model_2():
     num_steps = 1
 
     grid = RectangularGrid(nx, ny)
-    geometry = create_par_geometry(rank, size, grid, Vec2(100000.0, 100000.0))
+    geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
     
     u = jnp.copy(zero_field)
@@ -107,13 +107,12 @@ def test_model_3():
     xmax = ymax = 10000.0
     nx = ny = 11
     dx = dy = xmax / (nx - 1.0)
-    print(f"\ncp(3): dx={dx}, dy={dy}, xmax={xmax}, ymax={ymax}")
     g = 9.81
     dt = 0.68 * dx / sqrt(g * 5030.0)
     num_steps = 100
 
     grid = RectangularGrid(nx, ny)
-    geometry = create_par_geometry(rank, size, grid, Vec2(10000.0, 10000.0))
+    geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
 
     u = jnp.copy(zero_field)
