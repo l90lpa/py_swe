@@ -83,6 +83,7 @@ class ProcessGridLocalInfo:
 class DomainGlobalInfo:
     origin: Vec2 # The position of the global domain origin in real space
     extent: Vec2 # The extent of the global domain in real space
+    grid_extent: Vec2 # The extent of the global domain in grid space
 
 @dataclass(eq=True, frozen=True)
 class DomainLocalInfo:
@@ -210,6 +211,8 @@ def partition_rectangular_grid(grid: RectangularGrid, num_subgrids):
 
 def create_domain_par_geometry(rank, size, grid: RectangularGrid, global_origin: Vec2=Vec2(0.0,0.0), global_extent: Vec2=Vec2(1.0,1.0)):
 
+    global_grid_extent = Vec2(grid.nx, grid.ny)
+
     subgrids, nxprocs, nyprocs = partition_rectangular_grid(grid, size)
     assert size == nxprocs * nyprocs
 
@@ -248,7 +251,8 @@ def create_domain_par_geometry(rank, size, grid: RectangularGrid, global_origin:
         pg_global_info,
         pg_local_info,
         DomainGlobalInfo(global_origin,
-                         global_extent),
+                         global_extent,
+                         global_grid_extent),
         DomainLocalInfo(Vec2(local_subgrid.start_x, local_subgrid.start_y),
                         Vec2(local_subgrid.local_nx, local_subgrid.local_ny),
                         HaloDepth(0,0,0,0),
