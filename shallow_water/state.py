@@ -3,6 +3,7 @@ from collections import namedtuple
 
 import numpy as np
 import jax.numpy as jnp
+from jax.lax import fori_loop
 from jax.tree_util import register_pytree_node
 
 from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape, at_locally_owned
@@ -59,10 +60,18 @@ def create_local_field_tsunami_height(geometry: ParGeometry, dtype):
     local_origin_x = geometry.local_domain.grid_origin.x
     local_origin_y = geometry.local_domain.grid_origin.y
     x_slice, y_slice = at_locally_owned(geometry)
-    for i in range(x_slice.start, x_slice.stop):
-        for j in range(y_slice.start, y_slice.stop):
-            dsqr = ((i + local_origin_x) * dx - xmid) ** 2 + ((j + local_origin_y) * dy - ymid) ** 2
-            h = h.at[i,j].set(5000.0 + 30.0 * exp(-dsqr / sigma ** 2))
+  
+    def j_loop(j, ia):
+        i, a = ia
+        dsqr = ((i + local_origin_x) * dx - xmid) ** 2 + ((j + local_origin_y) * dy - ymid) ** 2
+        a = a.at[i,j].set(5000.0 + 30.0 * jnp.exp(-dsqr / sigma ** 2))
+        return i, a
+
+    def i_loop(i, a):
+        i, a = fori_loop(y_slice.start, y_slice.stop, j_loop, (i, a))
+        return a
+
+    h = fori_loop(x_slice.start, x_slice.stop, i_loop, h)
 
     return h
 
