@@ -16,8 +16,11 @@ from shallow_water.state import State, create_local_field_zeros, create_local_fi
 from shallow_water.model import advance_model_w_padding_n_steps
 
 def create_par_geometry(rank, size, grid, extent):
-    grid = RectangularGrid(grid.nx - 2, grid.ny - 2)
-    geometry = create_domain_par_geometry(rank, size, grid, Vec2(0.0,0.0), extent)
+    dx = extent.x / (grid.nx - 1)
+    dy = extent.x / (grid.nx - 1)
+    adjusted_extent = Vec2(extent.x - 2 * dx, extent.y - 2 * dy)
+    adjusted_grid = RectangularGrid(grid.nx - 2, grid.ny - 2)
+    geometry = create_domain_par_geometry(rank, size, adjusted_grid, Vec2(dx,dy), adjusted_extent)
     geometry = add_ghost_geometry(geometry, 1)
     geometry = add_halo_geometry(geometry, 1)
     return geometry
@@ -104,6 +107,7 @@ def test_model_3():
     xmax = ymax = 10000.0
     nx = ny = 11
     dx = dy = xmax / (nx - 1.0)
+    print(f"\ncp(3): dx={dx}, dy={dy}, xmax={xmax}, ymax={ymax}")
     g = 9.81
     dt = 0.68 * dx / sqrt(g * 5030.0)
     num_steps = 100
@@ -114,7 +118,7 @@ def test_model_3():
 
     u = jnp.copy(zero_field)
     v = jnp.copy(zero_field)
-    h = create_local_field_tsunami_height(geometry, xmax, dx, ymax, dy)
+    h = create_local_field_tsunami_height(geometry, jnp.float64)
 
     s = State(u, v, h)
 

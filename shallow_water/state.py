@@ -41,13 +41,21 @@ def create_local_field_unit_random(geometry: ParGeometry, dtype, rng=np.random.d
         field /= norm
     return field
 
-def create_local_field_tsunami_height(geometry: ParGeometry, xmax, dx, ymax, dy):
-    h = create_local_field_zeros(geometry, jnp.float64)
-    xmid = xmax / 2.0
-    ymid = ymax / 2.0
-    sigma = floor(xmax / 20.0)
+def create_local_field_tsunami_height(geometry: ParGeometry, dtype):
+    # The global domain and grid must be square
+    assert geometry.global_domain.extent.x == geometry.global_domain.extent.y
+    assert geometry.global_domain.grid_extent.x == geometry.global_domain.grid_extent.y
 
-    # ! Create a state with a tsunami pulse in it to initialize field h
+    ymax = xmax = geometry.global_domain.extent.x
+    ny   = nx   = geometry.global_domain.grid_extent.x
+    dy   = dx   = xmax / (nx - 1)
+
+    h = create_local_field_zeros(geometry, dtype)
+    xmid = (xmax / 2.0) + geometry.global_domain.origin.x
+    ymid = (ymax / 2.0) + geometry.global_domain.origin.y
+    sigma = floor((xmax + 2 * dx) / 20.0)
+
+    # Create a height field with a tsunami pulse
     local_origin_x = geometry.local_domain.grid_origin.x
     local_origin_y = geometry.local_domain.grid_origin.y
     x_slice, y_slice = at_locally_owned(geometry)
