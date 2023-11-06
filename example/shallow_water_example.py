@@ -1,5 +1,6 @@
 
 from math import sqrt
+import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -58,6 +59,7 @@ def save_field_figure(field, filename):
     # make a color map of fixed colors
     cmap = mpl.colors.LinearSegmentedColormap.from_list('my_colormap', ['blue', 'red'], 256)
 
+    # modify data layout so that it displays as expected (x horizontal, and y vertical with origin in bottom left corner)
     field = np.rot90(field, k=3)
     field = np.fliplr(field)
 
@@ -74,27 +76,69 @@ def save_field_figure(field, filename):
 if __name__ == "__main__":
     
     xmax = ymax = 100000.0
-    nx = ny = 101
+    nx = ny = 100
     dx = dy = xmax / (nx - 1.0)
     g = 9.81
     dt = 0.68 * dx / sqrt(g * 5030)
-    num_steps = 500
+    num_steps = 50
+
+    if rank == root:
+        print(f"Setup...")
+        start = time.perf_counter()
 
     grid = RectangularGrid(nx, ny)
     geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
     b = create_local_field_zeros(geometry, jnp.float64)
-    s = initial_condition(geometry)
+    s0 = initial_condition(geometry)
+    s0.u.block_until_ready()
 
+    if rank == root:
+        end = time.perf_counter()
+        print(f"Setup completed in {end - start} seconds.")
 
-    s_global = gather_global_state_domain(s, geometry, root)
+    if rank == root:
+        print(f"Saving initial condition...")
+        start = time.perf_counter()
+
+    s_global = gather_global_state_domain(s0, geometry, root)
     if rank == root:
         save_field_figure(s_global.h, "step-0.png")
-        
 
-    s = advance_model_w_padding_n_steps(s, geometry, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
+    if rank == root:
+        end = time.perf_counter()
+        print(f"Save initial condition completed in {end - start} seconds.")
 
+    if rank == root:
+        print(f"Starting first step (plus compilation)...")
+        start = time.perf_counter()
 
-    s_global = gather_global_state_domain(s, geometry, root)
+    s1 = advance_model_w_padding_n_steps(s0, geometry, mpi4jax_comm_wrapped, b, 1, dt, dx, dy)
+    s1.u.block_until_ready()
+
+    if rank == root:
+        end = time.perf_counter()
+        print(f"First step completed in {end - start} seconds.")
+
+    if rank == root:
+        print(f"Starting remaining {num_steps - 1} steps...")
+        start = time.perf_counter()
+
+    sN = advance_model_w_padding_n_steps(s1, geometry, mpi4jax_comm_wrapped, b, num_steps-1, dt, dx, dy)
+    sN.u.block_until_ready()
+
+    if rank == root:
+        end = time.perf_counter()
+        print(f"Steps 1 to {num_steps} completed in {end - start} seconds.")
+
+    if rank == root:
+        print(f"Saving final condition...")
+        start = time.perf_counter()
+
+    s_global = gather_global_state_domain(sN, geometry, root)
     if rank == root:
         save_field_figure(s_global.h, f"step-{num_steps}.png")
+
+    if rank == root:
+        end = time.perf_counter()
+        print(f"Save final condition completed in {end - start} seconds.")
     
