@@ -4,8 +4,6 @@ import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from scipy.io import FortranFile
 
 from jax.tree_util import tree_map
 import jax.numpy as jnp
