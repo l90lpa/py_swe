@@ -15,7 +15,7 @@ import mpi4jax
 
 from shallow_water.model import advance_model_w_padding_n_steps, pad_state, unpad_state
 from shallow_water.geometry import Vec2, RectangularGrid, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry
-from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_ones
+from shallow_water.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_tsunami_height
 from shallow_water.tlm import advance_tlm_w_padding_n_steps
 from shallow_water.adm import advance_adm_w_padding_n_steps
 
@@ -52,18 +52,18 @@ rng = np.random.default_rng(12345)
 
 def primalArg():
     return State(create_local_field_zeros(geometry, jnp.float64),
-                    create_local_field_zeros(geometry, jnp.float64),
-                    create_local_field_ones(geometry, jnp.float64),)
+                 create_local_field_zeros(geometry, jnp.float64),
+                 create_local_field_tsunami_height(geometry, jnp.float64),)
 
 def tangentArg():
     return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
+                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
 
 def cotangentArg():
     return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                    create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
+                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),
+                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
 
 def scale(a,x):
     return State(a * x.u, a * x.v, a * x.h)
