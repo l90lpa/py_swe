@@ -1,9 +1,10 @@
 
-from math import sqrt
+from math import sqrt, ceil
 import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+# mpl.use("QtAgg")
 
 from jax.tree_util import tree_map
 import jax.numpy as jnp
@@ -15,9 +16,9 @@ from mpi4py import MPI
 # Exposing HashableMPIType, which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import HashableMPIType
 
-from shallow_water.geometry import Vec2, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned, at_local_domain
+from shallow_water.geometry import Vec2, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_local_domain
 from shallow_water.state import create_local_field_zeros, gather_global_field, create_local_field_tsunami_height
-from shallow_water.model import advance_model_w_padding_n_steps
+from shallow_water.model import shallow_water_model_w_padding, advance_model_w_padding_n_steps
 from shallow_water.state import State
 
 
@@ -53,90 +54,93 @@ def gather_global_state_domain(s, geometry, root):
     return s_global
 
 
-def save_field_figure(field, filename):
+def save_state_figure(state, filename):
+
+    def reorientate(x):
+        return np.fliplr(np.rot90(x, k=3))
+    
+    def downsample(x, n):
+        nx = np.size(x, axis=0)
+        ns = nx // n
+        return x[::ns,::ns]
+
     # make a color map of fixed colors
-    cmap = mpl.colors.LinearSegmentedColormap.from_list('my_colormap', ['blue', 'red'], 256)
+    cmap = mpl.colors.LinearSegmentedColormap.from_list('my_colormap', ['blue', 'white', 'red'], 256)
 
-    # modify data layout so that it displays as expected (x horizontal, and y vertical with origin in bottom left corner)
-    field = np.rot90(field, k=3)
-    field = np.fliplr(field)
+    # modify data layout so that it displays as expected (x horizontal and y vertical, with origin in bottom left corner)
+    u = reorientate(state.u)
+    v = reorientate(state.v)
+    h = reorientate(state.h)
 
+    x = y = np.linspace(0, np.size(u, axis=0)-1, np.size(u, axis=0))
+    xx, yy = np.meshgrid(x, y)
+
+    # downsample velocity vector field to make it easier to read
+    xx = downsample(xx, 20)
+    yy = downsample(yy, 20)
+    u = downsample(u, 20)
+    v = downsample(v, 20)
+
+    fig, ax = plt.subplots()
     # tell imshow about color map so that only set colors are used
-    img = plt.imshow(field, interpolation='nearest', cmap = cmap,origin='lower')
-
-    # make a color bar
+    img = ax.imshow(h, interpolation='nearest', cmap=cmap, origin='lower')
+    ax.quiver(xx,yy,u,v)
     plt.colorbar(img,cmap=cmap)
     plt.grid(True,color='black')
     plt.savefig(filename)
-    plt.close()
+
+
+def save_global_state_domain_on_root(s, geometry, root, filename, msg):
+    s_global = gather_global_state_domain(s, geometry, root)
+    if rank == root:
+        save_state_figure(s_global, filename)
+        print(msg)
 
 
 if __name__ == "__main__":
     
     xmax = ymax = 100000.0
-    nx = ny = 100
+    nx = ny = 2000
     dx = dy = xmax / (nx - 1.0)
     g = 9.81
     dt = 0.68 * dx / sqrt(g * 5030)
-    num_steps = 50
-
-    if rank == root:
-        print(f"Setup...")
-        start = time.perf_counter()
+    tmax = 150
+    num_steps = ceil(tmax / dt)
 
     grid = RectangularGrid(nx, ny)
     geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
     b = create_local_field_zeros(geometry, jnp.float64)
     s0 = initial_condition(geometry)
-    s0.u.block_until_ready()
+
+    token = jnp.empty((1,))
+
+
+    save_global_state_domain_on_root(s0, geometry, root, "step-0.png", "Saved initial condition.")
+
+
+    if rank == root:
+        print(f"Starting compilation.")
+        start = time.perf_counter()
+
+
+    model_compiled = shallow_water_model_w_padding.lower(s0, geometry, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy, token).compile()
+
 
     if rank == root:
         end = time.perf_counter()
-        print(f"Setup completed in {end - start} seconds.")
-
-    if rank == root:
-        print(f"Saving initial condition...")
+        print(f"Compilation completed in {end - start} seconds.")
+        print(f"Starting simulation with {num_steps} steps...")
         start = time.perf_counter()
 
-    s_global = gather_global_state_domain(s0, geometry, root)
-    if rank == root:
-        save_field_figure(s_global.h, "step-0.png")
 
-    if rank == root:
-        end = time.perf_counter()
-        print(f"Save initial condition completed in {end - start} seconds.")
-
-    if rank == root:
-        print(f"Starting first step (plus compilation)...")
-        start = time.perf_counter()
-
-    s1 = advance_model_w_padding_n_steps(s0, geometry, mpi4jax_comm_wrapped, b, 1, dt, dx, dy)
-    s1.u.block_until_ready()
-
-    if rank == root:
-        end = time.perf_counter()
-        print(f"First step completed in {end - start} seconds.")
-
-    if rank == root:
-        print(f"Starting remaining {num_steps - 1} steps...")
-        start = time.perf_counter()
-
-    sN = advance_model_w_padding_n_steps(s1, geometry, mpi4jax_comm_wrapped, b, num_steps-1, dt, dx, dy)
+    sN, _ = model_compiled(s0, b, dt, dx, dy, token)
     sN.u.block_until_ready()
 
-    if rank == root:
-        end = time.perf_counter()
-        print(f"Steps 1 to {num_steps} completed in {end - start} seconds.")
-
-    if rank == root:
-        print(f"Saving final condition...")
-        start = time.perf_counter()
-
-    s_global = gather_global_state_domain(sN, geometry, root)
-    if rank == root:
-        save_field_figure(s_global.h, f"step-{num_steps}.png")
 
     if rank == root:
         end = time.perf_counter()
-        print(f"Save final condition completed in {end - start} seconds.")
+        print(f"Simulation completed in {end - start} seconds, with an average time per step of {(end - start) / num_steps} seconds.")
+
+
+    save_global_state_domain_on_root(sN, geometry, root, f"step-{num_steps}.png", "Saved final condition.")
     
