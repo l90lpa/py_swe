@@ -11,9 +11,9 @@ from mpi4py import MPI
 # Abusing mpi4jax by exposing HashableMPIType, which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import HashableMPIType
 
-from shallow_water.geometry import Vec2, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned,at_local_domain
-from shallow_water.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
-from shallow_water.model import advance_model_w_padding_n_steps
+from py_swe.geometry import Vec2, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned,at_local_domain
+from py_swe.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
+from py_swe.model import advance_model_w_padding_n_steps
 
 def create_par_geometry(rank, size, grid, extent):
     dx = extent.x / (grid.nx - 1)

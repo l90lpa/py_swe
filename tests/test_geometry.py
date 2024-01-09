@@ -1,6 +1,6 @@
 import pytest
 
-from shallow_water.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry
+from py_swe.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry
 
 def test_process_coord_index_conversion():
 

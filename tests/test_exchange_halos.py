@@ -8,9 +8,9 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 
 
-from shallow_water.geometry import create_domain_par_geometry, add_halo_geometry, RectangularGrid, at_locally_owned
-from shallow_water.state import create_local_field_zeros
-from shallow_water.exchange_halos import exchange_field_halos
+from py_swe.geometry import create_domain_par_geometry, add_halo_geometry, RectangularGrid, at_locally_owned
+from py_swe.state import create_local_field_zeros
+from py_swe.exchange_halos import exchange_field_halos
 
 mpi4jax_comm = MPI.COMM_WORLD
 rank = mpi4jax_comm.Get_rank()
