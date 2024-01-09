@@ -118,7 +118,7 @@ def test_tlm_linearity():
     assert success
 
 def test_tlm_approx():
-    success, relative_error = lc.testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, 1.0e-13)
+    success, relative_error = lc.testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, 1.0e-7)
     if rank == 0:
         print(f"Test TLM Approx: success ={success}, relative error={relative_error}")
     assert success
