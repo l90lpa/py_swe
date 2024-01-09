@@ -1,0 +1,50 @@
+[project]
+name = "py_swe"
+version = "1.0.0"
+authors = [{ name="Liam Adams" },]
+description = "A solver for the shallow water equations, and associated linear models."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "contourpy==1.2.0",
+    "cycler==0.12.1",
+    "equinox==0.11.1",
+    "fonttools==4.44.0",
+    "jax==0.4.20",
+    "jaxlib==0.4.20",
+    "jaxtyping==0.2.23",
+    "kiwisolver==1.4.5",
+    "matplotlib==3.8.1",
+    "ml-dtypes==0.3.1",
+    "mpi4jax_ad_wrapper @ git+https://github.com/l90lpa/mpi4jax_ad_wrapper.git@4ee1228b3b22adb00225d9d7c4790cde8be42038",
+    "numpy==1.26.1",
+    "opt-einsum==3.3.0",
+    "packaging==23.2",
+    "Pillow==10.1.0",
+    "pyparsing==3.1.1",
+    "python-dateutil==2.8.2",
+    "scipy==1.11.3",
+    "six==1.16.0",
+    "typeguard==2.13.3",
+    "typing_extensions==4.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/l90lpa/py_swe"
+Issues = "https://github.com/l90lpa/py_swe/issues"
+
+[build-system]
+requires = [
+  "hatchling"
+]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests",]
+
+[tool.hatch.metadata]
+allow-direct-references = true
