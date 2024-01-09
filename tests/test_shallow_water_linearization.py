@@ -19,7 +19,7 @@ from shallow_water.state import State, create_local_field_zeros, create_local_fi
 from shallow_water.tlm import advance_tlm_w_padding_n_steps
 from shallow_water.adm import advance_adm_w_padding_n_steps
 
-import validation.linearization_checks as lc
+from .utils import linearization_checks as lc
 
 mpi4jax_comm = MPI.COMM_WORLD
 rank = mpi4jax_comm.Get_rank()

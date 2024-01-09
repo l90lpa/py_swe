@@ -1,7 +1,7 @@
 
 import numpy as np
 
-import validation.linearization_checks as lc
+from .utils import linearization_checks as lc
 
 ## Parameters
 shape = (3,3)
