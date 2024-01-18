@@ -1,6 +1,6 @@
 [project]
 name = "py_swe"
-version = "1.0.0"
+version = "1.0.1"
 authors = [{ name="Liam Adams" },]
 description = "A solver for the shallow water equations, and associated linear models."
 readme = "README.md"
