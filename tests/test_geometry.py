@@ -1,6 +1,6 @@
 import pytest
 
-from py_swe.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry
+from py_swe.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_geometry, add_halo_geometry, add_ghost_geometry
 
 def test_process_coord_index_conversion():
 
@@ -63,7 +63,7 @@ def test_create_par_geometry():
     size = 4
     grid = RectangularGrid(17,17)
 
-    geometry = create_domain_par_geometry(rank, size, grid)
+    geometry = create_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
     geometry = add_ghost_geometry(geometry, 1)
 
@@ -92,7 +92,7 @@ def test_create_par_geometry_2():
     size = 9
     grid = RectangularGrid(3,3)
 
-    geometry = create_domain_par_geometry(rank, size, grid)
+    geometry = create_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
     geometry = add_ghost_geometry(geometry, 1)
 

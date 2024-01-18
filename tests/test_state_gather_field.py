@@ -3,7 +3,7 @@ import pytest
 import jax.numpy as jnp
 import numpy as np
 
-from py_swe.geometry import create_domain_par_geometry, add_halo_geometry, RectangularGrid, get_locally_owned_range, at_locally_owned
+from py_swe.geometry import create_geometry, add_halo_geometry, RectangularGrid, get_locally_owned_range, at_locally_owned
 from py_swe.state import create_local_field_ones, gather_global_field
 
 from mpi4py import MPI
@@ -19,7 +19,7 @@ def test_gather_global_field():
     
     grid = RectangularGrid(9,9)
 
-    geometry = create_domain_par_geometry(rank, size, grid)
+    geometry = create_geometry(rank, size, grid)
     geometry = add_halo_geometry(geometry, 1)
 
     field = (rank + 1) * create_local_field_ones(geometry, jnp.float32)

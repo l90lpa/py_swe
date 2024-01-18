@@ -3,28 +3,46 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from .state import gather_global_field
+from .state import gather_global_state_domain
 
-def visualize_locally_owned_field(file_name: str, locally_owned_field, nxprocs, nyprocs, root, rank, comm):
-    global_field = gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, comm)
+def save_state_figure(state, filename):
 
-    if rank == root:
-        # make a color map of fixed colors
-        cmap = mpl.colors.LinearSegmentedColormap.from_list('my_colormap',
-                                                ['blue', 'red'],
-                                                256)
+    def reorientate(x):
+        return np.fliplr(np.rot90(x, k=3))
+    
+    def downsample(x, n):
+        nx = np.size(x, axis=0)
+        ns = nx // n
+        return x[::ns,::ns]
 
-        # Modify data layout so that it displays as expected (x horizontal, and y vertical with origin in bottom left corner)
-        global_field = np.rot90(global_field, k=3)
-        global_field = np.fliplr(global_field)
+    # make a color map of fixed colors
+    cmap = mpl.colors.LinearSegmentedColormap.from_list('my_colormap', ['blue', 'white', 'red'], 256)
 
-        fig = plt.figure()
+    # modify data layout so that it displays as expected (x horizontal and y vertical, with origin in bottom left corner)
+    u = reorientate(state.u)
+    v = reorientate(state.v)
+    h = reorientate(state.h)
 
-        # tell imshow about color map so that only set colors are used
-        img = plt.imshow(global_field,interpolation='nearest', cmap = cmap,origin='lower')
+    x = y = np.linspace(0, np.size(u, axis=0)-1, np.size(u, axis=0))
+    xx, yy = np.meshgrid(x, y)
 
-        # make a color bar
-        plt.colorbar(img,cmap=cmap)
-        plt.grid(True,color='black')
+    # downsample velocity vector field to make it easier to read
+    xx = downsample(xx, 20)
+    yy = downsample(yy, 20)
+    u = downsample(u, 20)
+    v = downsample(v, 20)
 
-        fig.savefig(file_name)
+    fig, ax = plt.subplots()
+    # tell imshow about color map so that only set colors are used
+    img = ax.imshow(h, interpolation='nearest', cmap=cmap, origin='lower')
+    ax.quiver(xx,yy,u,v)
+    plt.colorbar(img,cmap=cmap)
+    plt.grid(True,color='black')
+    plt.savefig(filename)
+
+
+def save_global_state_domain_on_root(s, geometry, root, mpi4py_comm, filename, msg):
+    s_global = gather_global_state_domain(s, geometry, root, mpi4py_comm)
+    if geometry.local_pg.rank == root:
+        save_state_figure(s_global, filename)
+        print(msg)

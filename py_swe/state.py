@@ -4,9 +4,9 @@ from collections import namedtuple
 import numpy as np
 import jax.numpy as jnp
 from jax.lax import fori_loop
-from jax.tree_util import register_pytree_node
+from jax.tree_util import register_pytree_node, tree_map
 
-from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape, at_locally_owned
+from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape, at_locally_owned, at_local_domain
 
 
 State = namedtuple('State', 'u v h')
@@ -75,6 +75,15 @@ def create_local_field_tsunami_height(geometry: ParGeometry, dtype):
 
     return h
 
+def create_local_state_tsunami_pulse(geometry, dtype):
+    zero_field = create_local_field_zeros(geometry, dtype)
+
+    u = jnp.copy(zero_field)
+    v = jnp.copy(zero_field)
+    h = create_local_field_tsunami_height(geometry, dtype)
+
+    return State(u, v, h)
+
 def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4py_comm):
     '''Gather the distributed blocks of a field into a single 2D array on `rank == root`.
     Warning: one must ensure that the communicator argument, `mpi4py_comm`, is a communicator that is not used with any mpi4jax routines, 
@@ -119,3 +128,9 @@ def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4p
         return np.block(blocks)
 
     return np.empty((1,))
+
+
+def gather_global_state_domain(s, geometry, root, mpi4py_comm):
+    s_local_domain = tree_map(lambda x: np.array(x[at_local_domain(geometry)]), s)
+    s_global = tree_map(lambda x: gather_global_field(x, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, geometry.local_pg.rank, mpi4py_comm), s_local_domain)
+    return s_global

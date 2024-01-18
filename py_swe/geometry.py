@@ -209,7 +209,7 @@ def partition_rectangular_grid(grid: RectangularGrid, num_subgrids):
     Partition = namedtuple("Partition", "subgrids nxprocs nyprocs")
     return Partition(subgrid, nxprocs, nyprocs)
 
-def create_domain_par_geometry(rank, size, grid: RectangularGrid, global_origin: Vec2=Vec2(0.0,0.0), global_extent: Vec2=Vec2(1.0,1.0)):
+def create_geometry(rank, size, grid: RectangularGrid, global_origin: Vec2=Vec2(0.0,0.0), global_extent: Vec2=Vec2(1.0,1.0)):
 
     global_grid_extent = Vec2(grid.nx, grid.ny)
 
@@ -284,4 +284,11 @@ def add_halo_geometry(geometry: ParGeometry, depth):
                                        geometry.local_domain.grid_extent,
                                        halo_depth,
                                        geometry.local_domain.ghost_depth))
+
+def create_geometry_w_padding(rank, size, grid, extent):
+    grid = RectangularGrid(grid.nx, grid.ny)
+    geometry = create_geometry(rank, size, grid, Vec2(0.0, 0.0), extent)
+    geometry = add_ghost_geometry(geometry, 1)
+    geometry = add_halo_geometry(geometry, 1)
+    return geometry
 

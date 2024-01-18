@@ -14,8 +14,8 @@ from mpi4jax._src.utils import HashableMPIType
 import mpi4jax
 
 from py_swe.model import advance_model_w_padding_n_steps, pad_state, unpad_state
-from py_swe.geometry import Vec2, RectangularGrid, create_domain_par_geometry, add_ghost_geometry, add_halo_geometry
-from py_swe.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_ones, create_local_field_tsunami_height
+from py_swe.geometry import Vec2, RectangularGrid, create_geometry, add_ghost_geometry, add_halo_geometry
+from py_swe.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_tsunami_height
 from py_swe.tlm import advance_tlm_w_padding_n_steps
 from py_swe.adm import advance_adm_w_padding_n_steps
 
@@ -44,7 +44,7 @@ g = 9.81
 dt = 0.68 * dx / sqrt(g * 5030)
 num_steps = 100
 grid = RectangularGrid(nx, ny)
-geometry = create_domain_par_geometry(rank, size, grid, origin, extent)
+geometry = create_geometry(rank, size, grid, origin, extent)
 b = create_padded_b(geometry, jnp.float64)
 rng = np.random.default_rng(12345)
 

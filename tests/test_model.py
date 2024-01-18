@@ -11,16 +11,16 @@ from mpi4py import MPI
 # Abusing mpi4jax by exposing HashableMPIType, which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import HashableMPIType
 
-from py_swe.geometry import Vec2, create_domain_par_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned,at_local_domain
+from py_swe.geometry import Vec2, create_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned,at_local_domain
 from py_swe.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
 from py_swe.model import advance_model_w_padding_n_steps
 
-def create_par_geometry(rank, size, grid, extent):
+def fixture_create_geometry(rank, size, grid, extent):
     dx = extent.x / (grid.nx - 1)
     dy = extent.x / (grid.nx - 1)
     adjusted_extent = Vec2(extent.x - 2 * dx, extent.y - 2 * dy)
     adjusted_grid = RectangularGrid(grid.nx - 2, grid.ny - 2)
-    geometry = create_domain_par_geometry(rank, size, adjusted_grid, Vec2(dx,dy), adjusted_extent)
+    geometry = create_geometry(rank, size, adjusted_grid, Vec2(dx,dy), adjusted_extent)
     geometry = add_ghost_geometry(geometry, 1)
     geometry = add_halo_geometry(geometry, 1)
     return geometry
@@ -30,7 +30,7 @@ mpi4jax_comm = mpi4py_comm.Clone()
 
 rank = mpi4py_comm.Get_rank()
 size = mpi4py_comm.Get_size()
-root = 0 
+root = 0
 
 def test_model_1():
 
@@ -42,7 +42,7 @@ def test_model_1():
     num_steps = 1
 
     grid = RectangularGrid(nx, ny)
-    geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
+    geometry = fixture_create_geometry(rank, size, grid, Vec2(xmax, ymax))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
 
     u = jnp.copy(zero_field)
@@ -76,7 +76,7 @@ def test_model_2():
     num_steps = 1
 
     grid = RectangularGrid(nx, ny)
-    geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
+    geometry = fixture_create_geometry(rank, size, grid, Vec2(xmax, ymax))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
     
     u = jnp.copy(zero_field)
@@ -111,7 +111,7 @@ def test_model_3():
     num_steps = 100
 
     grid = RectangularGrid(nx, ny)
-    geometry = create_par_geometry(rank, size, grid, Vec2(xmax, ymax))
+    geometry = fixture_create_geometry(rank, size, grid, Vec2(xmax, ymax))
     zero_field = create_local_field_zeros(geometry, jnp.float64)
 
     u = jnp.copy(zero_field)
