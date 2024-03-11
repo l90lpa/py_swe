@@ -3,7 +3,7 @@ import pytest
 import jax.numpy as jnp
 import numpy as np
 
-from py_swe.geometry import create_geometry, add_halo_geometry, RectangularGrid, get_locally_owned_range, at_locally_owned
+from py_swe.geometry import create_geometry, RectangularGrid, get_locally_owned_range, at_locally_owned
 from py_swe.state import create_local_field_ones, gather_global_field
 
 from mpi4py import MPI
@@ -19,8 +19,7 @@ def test_gather_global_field():
     
     grid = RectangularGrid(9,9)
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 0)
 
     field = (rank + 1) * create_local_field_ones(geometry, jnp.float32)
     start, end = get_locally_owned_range(geometry)
@@ -34,7 +33,7 @@ def test_gather_global_field():
                                          
     locally_owned_field = np.array(field[at_locally_owned(geometry)])
     
-    global_field = gather_global_field(locally_owned_field, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    global_field = gather_global_field(locally_owned_field, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         if size == 4:

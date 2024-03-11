@@ -6,7 +6,7 @@ import jax.numpy as jnp
 from jax.lax import fori_loop
 from jax.tree_util import register_pytree_node, tree_map
 
-from .geometry import ParGeometry, Vec2, coord_to_index_xy_order, get_locally_active_shape, at_locally_owned, at_local_domain
+from .geometry import Geometry, Vec2, coord_to_index_xy_order, get_locally_active_shape, at_locally_owned, at_local_domain
 
 
 State = namedtuple('State', 'u v h')
@@ -18,47 +18,46 @@ register_pytree_node(
 )
 
 
-def create_local_field_empty(geometry: ParGeometry, dtype):
+def create_local_field_empty(geometry: Geometry, dtype):
     shape = get_locally_active_shape(geometry)
     return jnp.empty(shape, dtype=dtype)
 
-def create_local_field_zeros(geometry: ParGeometry, dtype):
+def create_local_field_zeros(geometry: Geometry, dtype):
     shape = get_locally_active_shape(geometry)
     return jnp.zeros(shape, dtype=dtype)
 
-def create_local_field_ones(geometry: ParGeometry, dtype):
+def create_local_field_ones(geometry: Geometry, dtype):
     shape = get_locally_active_shape(geometry)
     return jnp.ones(shape, dtype=dtype)
 
-def create_local_field_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
+def create_local_field_random(geometry: Geometry, dtype, rng=np.random.default_rng()):
     shape = get_locally_active_shape(geometry)
-    # return rng.random(shape, dtype=dtype)
     return np.array(rng.normal(0.0, 1.0, shape), dtype=dtype)
 
-def create_local_field_unit_random(geometry: ParGeometry, dtype, rng=np.random.default_rng()):
+def create_local_field_unit_random(geometry: Geometry, dtype, rng=np.random.default_rng()):
     field = create_local_field_random(geometry, dtype, rng=rng)
     norm = jnp.linalg.norm(field)
     if norm != 0:
         field /= norm
     return field
 
-def create_local_field_tsunami_height(geometry: ParGeometry, dtype):
+def create_local_field_tsunami_height(geometry: Geometry, dtype):
     # The global domain and grid must be square
-    assert geometry.global_domain.extent.x == geometry.global_domain.extent.y
-    assert geometry.global_domain.grid_extent.x == geometry.global_domain.grid_extent.y
+    assert geometry.extent.x == geometry.extent.y
+    assert geometry.grid_extent.x == geometry.grid_extent.y
 
-    ymax = xmax = geometry.global_domain.extent.x
-    ny   = nx   = geometry.global_domain.grid_extent.x
+    ymax = xmax = geometry.extent.x
+    ny   = nx   = geometry.grid_extent.x
     dy   = dx   = xmax / (nx - 1)
 
     h = create_local_field_zeros(geometry, dtype)
-    xmid = (xmax / 2.0) + geometry.global_domain.origin.x
-    ymid = (ymax / 2.0) + geometry.global_domain.origin.y
+    xmid = (xmax / 2.0) + geometry.origin.x
+    ymid = (ymax / 2.0) + geometry.origin.y
     sigma = floor((xmax + 2 * dx) / 20.0)
 
     # Create a height field with a tsunami pulse
-    local_origin_x = geometry.local_domain.grid_origin.x
-    local_origin_y = geometry.local_domain.grid_origin.y
+    local_origin_x = geometry.local_grid_origin.x
+    local_origin_y = geometry.local_grid_origin.y
     x_slice, y_slice = at_locally_owned(geometry)
   
     def j_loop(j, ia):
@@ -81,6 +80,8 @@ def create_local_state_tsunami_pulse(geometry, dtype):
     u = jnp.copy(zero_field)
     v = jnp.copy(zero_field)
     h = create_local_field_tsunami_height(geometry, dtype)
+
+    print(jnp.min(h), jnp.max(h))
 
     return State(u, v, h)
 
@@ -130,7 +131,33 @@ def gather_global_field(locally_owned_field, nxprocs, nyprocs, root, rank, mpi4p
     return np.empty((1,))
 
 
+def pad_field(f, geometry_padded):
+    from .state import create_local_field_zeros
+
+    zeros_field = create_local_field_zeros(geometry_padded, jnp.float64)
+
+    f_padded = zeros_field.at[at_local_domain(geometry_padded)].set(f)
+    
+    return f_padded
+
+
+def pad_state(s, geometry_padded):   
+    return State(pad_field(s.u, geometry_padded),
+                 pad_field(s.v, geometry_padded),
+                 pad_field(s.h, geometry_padded))
+
+
+def unpad_field(f_padded, geometry_padded):
+    return f_padded[at_local_domain(geometry_padded)]
+
+
+def unpad_state(s_padded, geometry_padded):
+    return State(unpad_field(s_padded.u, geometry_padded),
+                 unpad_field(s_padded.v, geometry_padded),
+                 unpad_field(s_padded.h, geometry_padded))
+
+
 def gather_global_state_domain(s, geometry, root, mpi4py_comm):
     s_local_domain = tree_map(lambda x: np.array(x[at_local_domain(geometry)]), s)
-    s_global = tree_map(lambda x: gather_global_field(x, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, geometry.local_pg.rank, mpi4py_comm), s_local_domain)
+    s_global = tree_map(lambda x: gather_global_field(x, geometry.nxprocs, geometry.nyprocs, root, geometry.local_rank, mpi4py_comm), s_local_domain)
     return s_global

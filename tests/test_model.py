@@ -1,6 +1,6 @@
 import pytest
 
-from math import sqrt, floor, exp
+from math import sqrt
 
 import jax.numpy as jnp
 import numpy as np
@@ -11,18 +11,16 @@ from mpi4py import MPI
 # Abusing mpi4jax by exposing HashableMPIType, which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import HashableMPIType
 
-from py_swe.geometry import Vec2, create_geometry, add_halo_geometry, add_ghost_geometry, RectangularGrid, at_locally_owned,at_local_domain
+from py_swe.geometry import Vec2, create_geometry, RectangularGrid, at_locally_owned,at_local_domain
 from py_swe.state import State, create_local_field_zeros, create_local_field_tsunami_height, gather_global_field
-from py_swe.model import advance_model_w_padding_n_steps
+from py_swe.model import advance_model_n_steps
 
 def fixture_create_geometry(rank, size, grid, extent):
     dx = extent.x / (grid.nx - 1)
     dy = extent.x / (grid.nx - 1)
     adjusted_extent = Vec2(extent.x - 2 * dx, extent.y - 2 * dy)
     adjusted_grid = RectangularGrid(grid.nx - 2, grid.ny - 2)
-    geometry = create_geometry(rank, size, adjusted_grid, Vec2(dx,dy), adjusted_extent)
-    geometry = add_ghost_geometry(geometry, 1)
-    geometry = add_halo_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, adjusted_grid, 1, 1, Vec2(dx,dy), adjusted_extent)
     return geometry
 
 mpi4py_comm = MPI.COMM_WORLD
@@ -51,15 +49,15 @@ def test_model_1():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_w_padding_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
     u_local = np.array(s_new.u[at_locally_owned(geometry)])
     v_local = np.array(s_new.v[at_locally_owned(geometry)])
     h_local = np.array(s_new.h[at_locally_owned(geometry)])
     
-    u_global = gather_global_field(u_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
-    v_global = gather_global_field(v_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
-    h_global = gather_global_field(h_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    u_global = gather_global_field(u_local, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
+    v_global = gather_global_field(v_local, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
+    h_global = gather_global_field(h_local, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         assert np.all(np.equal(u_global, [0.0]))
@@ -86,15 +84,15 @@ def test_model_2():
     s = State(u, v, h)
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_w_padding_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
     u_local = np.array(s_new.u[at_locally_owned(geometry)])
     v_local = np.array(s_new.v[at_locally_owned(geometry)])
     h_local = np.array(s_new.h[at_locally_owned(geometry)])
     
-    u_global = gather_global_field(u_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
-    v_global = gather_global_field(v_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
-    h_global = gather_global_field(h_local, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    u_global = gather_global_field(u_local, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
+    v_global = gather_global_field(v_local, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
+    h_global = gather_global_field(h_local, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         assert np.all(np.equal(u_global, [0.0]))
@@ -122,15 +120,15 @@ def test_model_3():
 
     b = jnp.copy(zero_field)
 
-    s_new = advance_model_w_padding_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
+    s_new = advance_model_n_steps(s, geometry, HashableMPIType(mpi4jax_comm), b, num_steps, dt, dx, dy)
 
 
     u_locally_owned = np.array(s_new.u[at_locally_owned(geometry)])
     v_locally_owned = np.array(s_new.v[at_locally_owned(geometry)])
     h_locally_owned = np.array(s_new.h[at_locally_owned(geometry)])
-    u_global = gather_global_field(u_locally_owned, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
-    v_global = gather_global_field(v_locally_owned, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
-    h_global = gather_global_field(h_locally_owned, geometry.global_pg.nxprocs, geometry.global_pg.nyprocs, root, rank, mpi4py_comm)
+    u_global = gather_global_field(u_locally_owned, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
+    v_global = gather_global_field(v_locally_owned, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
+    h_global = gather_global_field(h_locally_owned, geometry.nxprocs, geometry.nyprocs, root, rank, mpi4py_comm)
 
     if rank == root:
         rms_u = sqrt(np.sum(u_global ** 2) / (nx * ny))

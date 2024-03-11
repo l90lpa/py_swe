@@ -6,14 +6,14 @@ import mpi4jax
 from mpi4jax._src.utils import unpack_hashable
 
 from .exchange_halos import exchange_state_halos
-from .geometry import ParGeometry, get_locally_owned_range, at_local_domain
+from .geometry import Geometry, get_locally_owned_range, at_local_domain
 from .state import State
 from .ode_integrate import integrate, forward_euler_solver_step
 from .scan_functions import jax_scan
 
 
 @partial(jit, static_argnames=['geometry'])
-def apply_model(s_new, s, geometry: ParGeometry, b, dt: float, dx: float, dy: float):
+def apply_model(s_new, s, geometry: Geometry, b, dt: float, dx: float, dy: float):
 
     (u_new, v_new, h_new) = s_new
     (u, v, h) = s
@@ -51,7 +51,7 @@ def apply_model(s_new, s, geometry: ParGeometry, b, dt: float, dx: float, dy: fl
 
 
 @partial(jit, static_argnames=['geometry'])
-def apply_boundary_conditions(s_new, s, geometry: ParGeometry):
+def apply_boundary_conditions(s_new, s, geometry: Geometry):
 
     (u_new, v_new, h_new) = s_new
     (u, v, h) = s
@@ -60,22 +60,22 @@ def apply_boundary_conditions(s_new, s, geometry: ParGeometry):
     x_slice = slice(start.x, end.x)
     y_slice = slice(start.y, end.y)
 
-    if geometry.local_pg.topology.south == -1:
+    if geometry.local_topology.south == -1:
         u_new = u_new.at[x_slice, start.y].set( u[x_slice, start.y + 1])
         v_new = v_new.at[x_slice, start.y].set(-v[x_slice, start.y + 1])
         h_new = h_new.at[x_slice, start.y].set( h[x_slice, start.y + 1])
 
-    if geometry.local_pg.topology.north == -1:
+    if geometry.local_topology.north == -1:
         u_new = u_new.at[x_slice, end.y - 1].set( u[x_slice, end.y - 2])
         v_new = v_new.at[x_slice, end.y - 1].set(-v[x_slice, end.y - 2])
         h_new = h_new.at[x_slice, end.y - 1].set( h[x_slice, end.y - 2])
 
-    if geometry.local_pg.topology.west == -1:
+    if geometry.local_topology.west == -1:
         u_new = u_new.at[start.x, y_slice].set(-u[start.x + 1, y_slice])
         v_new = v_new.at[start.x, y_slice].set( v[start.x + 1, y_slice])
         h_new = h_new.at[start.x, y_slice].set( h[start.x + 1, y_slice])
         
-    if geometry.local_pg.topology.east == -1:
+    if geometry.local_topology.east == -1:
         u_new = u_new.at[end.x - 1, y_slice].set(-u[end.x - 2, y_slice])
         v_new = v_new.at[end.x - 1, y_slice].set( v[end.x - 2, y_slice])
         h_new = h_new.at[end.x - 1, y_slice].set( h[end.x - 2, y_slice])
@@ -109,9 +109,9 @@ def calculate_max_wavespeed(h, geometry, comm_wrapped, token=None):
 
     return jnp.sqrt(g * global_max_h), token
 
-@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped', 'scan_function'])
-def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function=jax_scan):
 
+
+def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function=jax_scan):
 
     # def max_wavespeed_warning(h, dt, dx, dy):
     #     max_wavespeed, _ = calculate_max_wavespeed(h, geometry, comm_wrapped)
@@ -141,64 +141,8 @@ def shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx,
     return s, token
 
 
-def pad_field(f, geometry):
-    from .geometry import add_ghost_geometry, add_halo_geometry
-    from .state import create_local_field_zeros
-    
-    geometry_padded = add_halo_geometry(geometry, 1)
-    geometry_padded = add_ghost_geometry(geometry_padded, 1)
-
-    zeros_field = create_local_field_zeros(geometry_padded, jnp.float64)
-
-    f_padded = zeros_field.at[at_local_domain(geometry_padded)].set(f)
-    
-    return f_padded, geometry_padded
-
-
-def pad_state(s, geometry):
-    
-    u, geometry_padded = pad_field(s.u, geometry)
-    v, geometry_padded = pad_field(s.v, geometry)
-    h, geometry_padded = pad_field(s.h, geometry)
-    
-    s_padded = State(u, v, h)
-
-    return s_padded, geometry_padded
-
-
-def unpad_field(f_padded, geometry_padded):
-    return f_padded[at_local_domain(geometry_padded)]
-
-
-def unpad_state(s_padded, geometry_padded):
-    return State(unpad_field(s_padded.u, geometry_padded),
-                 unpad_field(s_padded.v, geometry_padded),
-                 unpad_field(s_padded.h, geometry_padded))
-
-
-@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped', 'scan_function'])
-def shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function=jax_scan):
-
-    s, geometry_padded = pad_state(s, geometry)
-    b, geometry_padded = pad_field(b, geometry)
-
-    s = apply_boundary_conditions(s, s, geometry)
-
-    s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token, scan_function)
-
-    s = unpad_state(s, geometry_padded)
-
-    return s, token
-
-
 # This is a convience wrapper
-def advance_model_w_padding_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
-    token = jnp.empty((1,))
-    s, token = shallow_water_model_w_padding(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)
-    return s
-
-
-# This is a convience wrapper
+@partial(jit, static_argnames=['geometry', 'n_steps', 'comm_wrapped'])
 def advance_model_n_steps(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy):
     token = jnp.empty((1,))
     s, token = shallow_water_model(s, geometry, comm_wrapped, b, n_steps, dt, dx, dy, token)

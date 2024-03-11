@@ -5,17 +5,17 @@ import mpi4jax_ad_wrapper
 # Abusing mpi4jax by exposing unpack_hashable, to unpack HashableMPIType which is used in mpi4jax interface, from _src
 from mpi4jax._src.utils import unpack_hashable
 
-from .geometry import ParGeometry, get_locally_owned_range
+from .geometry import Geometry, get_locally_owned_range
 from .state import State
 
-def exchange_field_halos(field, geometry: ParGeometry, comm_wrapped, token):
+def exchange_field_halos(field, geometry: Geometry, comm_wrapped, token):
 
-    if geometry.global_pg.nxprocs * geometry.global_pg.nyprocs == 1:
+    if geometry.nxprocs * geometry.nyprocs == 1:
         return field, token
 
     comm = unpack_hashable(comm_wrapped)
-    local_topology = geometry.local_pg.topology
-    halo_depth = geometry.local_domain.halo_depth
+    local_topology = geometry.local_topology
+    halo_depth = geometry.local_halo_depth
 
     start, end = get_locally_owned_range(geometry)
 

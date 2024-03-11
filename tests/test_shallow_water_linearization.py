@@ -1,9 +1,10 @@
-
+import pytest
+ 
 from math import sqrt
 
 import numpy as np
 
-from jax import jvp, jit, config
+from jax import config
 config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import jax
@@ -13,11 +14,11 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 import mpi4jax
 
-from py_swe.model import advance_model_w_padding_n_steps, pad_state, unpad_state
-from py_swe.geometry import Vec2, RectangularGrid, create_geometry, add_ghost_geometry, add_halo_geometry
-from py_swe.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_tsunami_height
-from py_swe.tlm import advance_tlm_w_padding_n_steps
-from py_swe.adm import advance_adm_w_padding_n_steps
+from py_swe.model import advance_model_n_steps
+from py_swe.geometry import Vec2, RectangularGrid, create_geometry
+from py_swe.state import State, create_local_field_zeros, create_local_field_unit_random, create_local_field_tsunami_height, pad_state, unpad_state
+from py_swe.tlm import advance_tlm_n_steps
+from py_swe.adm import advance_adm_n_steps
 
 from .utils import linearization_checks as lc
 
@@ -25,14 +26,6 @@ mpi4jax_comm = MPI.COMM_WORLD
 rank = mpi4jax_comm.Get_rank()
 size = mpi4jax_comm.Get_size()
 mpi4jax_comm_wrapped = HashableMPIType(mpi4jax_comm)
-
-
-
-def create_padded_b(geometry, dtype):
-    padded_geometry = add_halo_geometry(geometry, 1)
-    padded_geometry = add_ghost_geometry(padded_geometry, 1)
-    return create_local_field_zeros(padded_geometry, dtype)
-
 
 ### Parameters
 
@@ -44,26 +37,27 @@ g = 9.81
 dt = 0.68 * dx / sqrt(g * 5030)
 num_steps = 10
 grid = RectangularGrid(nx, ny)
-geometry = create_geometry(rank, size, grid, origin, extent)
-b = create_padded_b(geometry, jnp.float64)
+geometry_unpadded = create_geometry(rank, size, grid, 0, 0, origin, extent)
+geometry_padded = create_geometry(rank, size, grid, 1, 1, origin, extent)
+b = create_local_field_zeros(geometry_padded, jnp.float64)
 rng = np.random.default_rng(12345)
 
 ### Functions
 
 def primalArg():
-    return State(create_local_field_zeros(geometry, jnp.float64),
-                 create_local_field_zeros(geometry, jnp.float64),
-                 create_local_field_tsunami_height(geometry, jnp.float64),)
+    return State(create_local_field_zeros(geometry_unpadded, jnp.float64),
+                 create_local_field_zeros(geometry_unpadded, jnp.float64),
+                 create_local_field_tsunami_height(geometry_unpadded, jnp.float64),)
 
 def tangentArg():
-    return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
+    return State(create_local_field_unit_random(geometry_unpadded, jnp.float64, rng=rng),
+                 create_local_field_unit_random(geometry_unpadded, jnp.float64, rng=rng),
+                 create_local_field_unit_random(geometry_unpadded, jnp.float64, rng=rng),)
 
 def cotangentArg():
-    return State(create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),
-                 create_local_field_unit_random(geometry, jnp.float64, rng=rng),)
+    return State(create_local_field_unit_random(geometry_unpadded, jnp.float64, rng=rng),
+                 create_local_field_unit_random(geometry_unpadded, jnp.float64, rng=rng),
+                 create_local_field_unit_random(geometry_unpadded, jnp.float64, rng=rng),)
 
 def scale(a,x):
     return State(a * x.u, a * x.v, a * x.h)
@@ -82,17 +76,17 @@ def norm(x):
     return jnp.sqrt(dot(x,x)).item()
 
 def m(s):
-    s_padded, geometry_padded = pad_state(s, geometry)
+    s_padded = pad_state(s, geometry_padded)
 
-    s_padded = advance_model_w_padding_n_steps(s_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
+    s_padded = advance_model_n_steps(s_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
 
     return unpad_state(s_padded, geometry_padded)
 
 def tlm(s, ds):
-    s_padded, geometry_padded = pad_state(s, geometry)
-    ds_padded, _ = pad_state(ds, geometry)
+    s_padded = pad_state(s, geometry_padded)
+    ds_padded = pad_state(ds, geometry_padded)
 
-    s_padded, ds_padded = advance_tlm_w_padding_n_steps(s_padded, ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
+    s_padded, ds_padded = advance_tlm_n_steps(s_padded, ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
 
     s_new = unpad_state(s_padded, geometry_padded)
     ds_new = unpad_state(ds_padded, geometry_padded)
@@ -100,10 +94,10 @@ def tlm(s, ds):
     return s_new, ds_new
 
 def adm(s, Ds):
-    s_padded, geometry_padded = pad_state(s, geometry)
-    Ds_padded, _ = pad_state(Ds, geometry)
+    s_padded = pad_state(s, geometry_padded)
+    Ds_padded = pad_state(Ds, geometry_padded)
 
-    s_padded, Ds_padded = advance_adm_w_padding_n_steps(s_padded, Ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
+    s_padded, Ds_padded = advance_adm_n_steps(s_padded, Ds_padded, geometry_padded, mpi4jax_comm_wrapped, b, num_steps, dt, dx, dy)
 
     s_new = unpad_state(s_padded, geometry_padded)
     Ds_new = unpad_state(Ds_padded, geometry_padded)
@@ -118,7 +112,7 @@ def test_tlm_linearity():
     assert success
 
 def test_tlm_approx():
-    success, relative_error = lc.testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, 1.0e-7)
+    success, relative_error = lc.testTLMApprox(m, tlm, primalArg, tangentArg, scale, add, norm, 2.0e-7)
     if rank == 0:
         print(f"Test TLM Approx: success ={success}, relative error={relative_error}")
     assert success

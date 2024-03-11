@@ -8,7 +8,7 @@ from mpi4py import MPI
 from mpi4jax._src.utils import HashableMPIType
 
 
-from py_swe.geometry import create_geometry, add_halo_geometry, RectangularGrid, at_locally_owned
+from py_swe.geometry import create_geometry, RectangularGrid, at_locally_owned
 from py_swe.state import create_local_field_zeros
 from py_swe.exchange_halos import exchange_field_halos
 
@@ -31,8 +31,7 @@ def test_exchange_halos():
         assert False
 
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 0)
     
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
@@ -82,8 +81,7 @@ def test_exchange_halos_2():
 
     grid = RectangularGrid(1,4)
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 0)
 
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
@@ -144,8 +142,7 @@ def test_exchange_halos_jvp():
         assert False
 
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 0)
 
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)
@@ -213,8 +210,7 @@ def test_exchange_halos_vjp():
         assert False
 
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 0)
 
     field = create_local_field_zeros(geometry, jnp.float32)
     field = field.at[at_locally_owned(geometry)].set(rank + 1)

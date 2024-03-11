@@ -1,6 +1,6 @@
 import pytest
 
-from py_swe.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_geometry, add_halo_geometry, add_ghost_geometry
+from py_swe.geometry import RectangularGrid, Vec2, coord_to_index_xy_order, index_to_coord_xy_order, partition_rectangular_grid, create_geometry
 
 def test_process_coord_index_conversion():
 
@@ -63,28 +63,26 @@ def test_create_par_geometry():
     size = 4
     grid = RectangularGrid(17,17)
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
-    geometry = add_ghost_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 1)
 
-    assert geometry.global_pg.nxprocs == 2 and geometry.global_pg.nyprocs == 2
+    assert geometry.nxprocs == 2 and geometry.nyprocs == 2
 
-    assert geometry.local_domain.grid_extent.x == 9 and geometry.local_domain.grid_extent.y == 9
+    assert geometry.local_grid_extent.x == 9 and geometry.local_grid_extent.y == 9
 
-    assert geometry.local_domain.halo_depth.north == 0
-    assert geometry.local_domain.halo_depth.south == 1
-    assert geometry.local_domain.halo_depth.east == 0
-    assert geometry.local_domain.halo_depth.west == 1
+    assert geometry.local_halo_depth.north == 0
+    assert geometry.local_halo_depth.south == 1
+    assert geometry.local_halo_depth.east == 0
+    assert geometry.local_halo_depth.west == 1
 
-    assert geometry.local_domain.ghost_depth.north == 1
-    assert geometry.local_domain.ghost_depth.south == 0
-    assert geometry.local_domain.ghost_depth.east == 1
-    assert geometry.local_domain.ghost_depth.west == 0
+    assert geometry.local_ghost_depth.north == 1
+    assert geometry.local_ghost_depth.south == 0
+    assert geometry.local_ghost_depth.east == 1
+    assert geometry.local_ghost_depth.west == 0
 
-    assert geometry.local_pg.topology.north == -1
-    assert geometry.local_pg.topology.south == 1
-    assert geometry.local_pg.topology.east == -1
-    assert geometry.local_pg.topology.west == 2
+    assert geometry.local_topology.north == -1
+    assert geometry.local_topology.south == 1
+    assert geometry.local_topology.east == -1
+    assert geometry.local_topology.west == 2
 
 def test_create_par_geometry_2():
     
@@ -92,25 +90,23 @@ def test_create_par_geometry_2():
     size = 9
     grid = RectangularGrid(3,3)
 
-    geometry = create_geometry(rank, size, grid)
-    geometry = add_halo_geometry(geometry, 1)
-    geometry = add_ghost_geometry(geometry, 1)
+    geometry = create_geometry(rank, size, grid, 1, 1)
 
-    assert geometry.global_pg.nxprocs == 3 and geometry.global_pg.nyprocs == 3
+    assert geometry.nxprocs == 3 and geometry.nyprocs == 3
 
-    assert geometry.local_domain.grid_extent.x == 1 and geometry.local_domain.grid_extent.y == 1
+    assert geometry.local_grid_extent.x == 1 and geometry.local_grid_extent.y == 1
 
-    assert geometry.local_domain.halo_depth.north == 1
-    assert geometry.local_domain.halo_depth.south == 1
-    assert geometry.local_domain.halo_depth.east == 1
-    assert geometry.local_domain.halo_depth.west == 1
+    assert geometry.local_halo_depth.north == 1
+    assert geometry.local_halo_depth.south == 1
+    assert geometry.local_halo_depth.east == 1
+    assert geometry.local_halo_depth.west == 1
 
-    assert geometry.local_domain.ghost_depth.north == 0
-    assert geometry.local_domain.ghost_depth.south == 0
-    assert geometry.local_domain.ghost_depth.east == 0
-    assert geometry.local_domain.ghost_depth.west == 0
+    assert geometry.local_ghost_depth.north == 0
+    assert geometry.local_ghost_depth.south == 0
+    assert geometry.local_ghost_depth.east == 0
+    assert geometry.local_ghost_depth.west == 0
 
-    assert geometry.local_pg.topology.north == 7
-    assert geometry.local_pg.topology.south == 1
-    assert geometry.local_pg.topology.east == 5
-    assert geometry.local_pg.topology.west == 3
+    assert geometry.local_topology.north == 7
+    assert geometry.local_topology.south == 1
+    assert geometry.local_topology.east == 5
+    assert geometry.local_topology.west == 3

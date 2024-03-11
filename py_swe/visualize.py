@@ -43,6 +43,6 @@ def save_state_figure(state, filename):
 
 def save_global_state_domain_on_root(s, geometry, root, mpi4py_comm, filename, msg):
     s_global = gather_global_state_domain(s, geometry, root, mpi4py_comm)
-    if geometry.local_pg.rank == root:
+    if geometry.local_rank == root:
         save_state_figure(s_global, filename)
         print(msg)
